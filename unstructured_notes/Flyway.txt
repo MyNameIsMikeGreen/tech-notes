@@ -1,0 +1,17 @@
+Flyway works by having a set of either Java or SQL files (in an appropriate folder) that list queries to the database. These queries are usually used to initial table setup or population of common data.
+  SQL migration files are just text files with SQL queries
+  Java migration files are classes which extend BaseJavaMigration. The migration procedure is defined by the overridden "migrate" function.
+The order of the files is determined by the versioning defined by the name of the file (V[version number]__[description]).
+The migrations are ran using "flyway migrate".
+  Flyway determines which version the DB is currently at. If there are new version it runs each file in order to migrate the DB to the latest.
+
+
+Flyway pipeline sets a new password for the DB during the execution of the pipeline
+
+Depending on whether the migration is in Java or SQL:
+  Java
+    Build a JAR of the migration using maven (Will have a pom.xml)
+  SQL
+    Load copy the files into the correct place (load into the image)
+
+Running the migration is done via the standard "flyway migrate" shell command (Altered slightly depending on whether the migrations are SQL or Java based)

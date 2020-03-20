@@ -1,0 +1,45 @@
+=== Spock Testing ===
+Groovy framework.
+
+A test is a "Specification". It extends the Specification class.
+
+Naming convention: [Class]Spec.
+
+Maven should be configured to define test classes as *Spec.
+
+Class layout convention:
+  Initialised variables
+  Setup methods
+  Actual test methods
+  Helper methods for tests
+
+Test cases written inside a def-block and contain a given/when/then set of clauses
+  Given are any pre-provided values
+  When is the statement under test
+  Then is a definition of what should happen when the when-block is called
+
+So that not all objects have to be instantiated (It may be difficult to do so in some situations), we can mock them.
+  Mocking involves making a mock version of the class using Mock([class]).
+  We can then define the behavior of the mocked object in certain situations such as what it returns when a method it canned on it using myMock.myMethod() >> "returnsThis"
+
+We can test conditions in the then-block using either basic assertions of values
+  We can also test that certain functions have been called n-times.
+    This may be asserting that is is never called
+      0 * myMethod()
+    This may be asserting that it is called once
+      1 * myMethod()
+    If we don't care about the argument to the method, we can wildcard the parameter using _
+      1 * myMethod(_)
+      If we don't care what the argument is specifically, but we care what class it is, we can specifiy this
+        1 * myMethod(_ as MyClass)
+    If we want to confirm that the method called has certain arguments, we can specifiy these here
+      1 * myMethod("myString")
+      If the argument to the method is more complex and we want to inspect its member variables, we can use argument constraints
+        See: https://www.adrianmilne.com/spock-argument-constraints-capture/
+        1 * myMethod({MyClass u -> u.name == 'myName')
+      If we want to manipulate the arguments that are passed and do more complex operations on them, we can use argument constraints
+        See: https://www.adrianmilne.com/spock-argument-constraints-capture/
+        1 * myMethod({arguments ->
+          myVar= arguments[0]
+          myVar ++
+        })

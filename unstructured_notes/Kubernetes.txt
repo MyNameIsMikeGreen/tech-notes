@@ -1,0 +1,58 @@
+Minikube - make cluster of nodes on local machine (Cluster will contain a single node).
+	`minikube start`
+
+Kubectl - command line interface for kubernetes
+	`kubectl version`
+	`kubectl get nodes`
+
+
+With a cluster running, we can deploy an app to the cluster.
+	Kubernetes is told how to do this using the “Deployment configuration”
+	An app must be run from a container (usually Docker).
+
+== Docker refresh ==
+Gather app-specific scripts
+Write docker file that copies the files and runs the command the app would execute from
+Run `docker build` to get the docker image.
+====
+
+Once deployed, kubernetes (via it’s “deployment controller”) monitors the node. If the node goes down, the app deployed on that node is deployed to another suitable node.
+
+Pod = Group of tightly coupled containers (Acts as a single unit)
+Deployment = Monitors the health of a pod. Restarts the pod’s container if it dies.
+
+
+A pod is, by default, only visible inside the cluster. If we wish to access a pod from outside the cluster, we need to expose the pod as a service.
+	`kubectl expose deployment [name of deployment] —type=LoadBalancer —port=[port to expose on]`
+
+
+===== Commands =====
+
+k9s
+  Launch K9s, a tool for managing clusters
+  Provides access to logs, shell, and other utilities for monitoring deployments
+
+kubectl config set current-context [context]
+  Switch to different cluster/context
+
+kubectl config current-context
+  View current cluster/context
+
+kubectl create job [job-name] -n goldac --from=cronjob/[existing-project-to-run]
+	Create cronjob that runs now
+
+kubectl get job -n goldac
+
+kubectl -n goldac delete deploy/[app-name] svc/[service-name]
+	Delete deployed app
+
+kubectl scale deployment [app-name] --replicas=[replica-count]
+	Sets the number of replicas to create for a given app
+
+
+===== K9s Commands ====
+:ctx
+	Switch context
+
+CTRL+d
+	Delete highlighted pod

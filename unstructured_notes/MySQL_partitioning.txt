@@ -1,0 +1,109 @@
+MySQL supports horizontal partitioning (i.e. distributing rows in a table across multiple partitions based on some partition function).
+
+It is recommended to only partition a table if it contains greater than 1 million rows. Otherwise the overhead of partitioning has an adverse effect overall.
+
+A datetime column can be used as the function for partitioning such as in the below example:
+  CREATE TABLE raw_log_2011_4 (
+    id bigint(20) NOT NULL AUTO_INCREMENT,
+    logid char(16) NOT NULL,
+    tid char(16) NOT NULL,
+    reporterip char(46) DEFAULT NULL,
+    ftime datetime DEFAULT NULL,
+    KEY id (id)
+  ) ENGINE=InnoDB AUTO_INCREMENT=286802795 DEFAULT CHARSET=utf8
+    PARTITION BY RANGE( TO_DAYS(ftime) ) (
+      PARTITION p20110401 VALUES LESS THAN (TO_DAYS('2011-04-02')),
+      PARTITION p20110402 VALUES LESS THAN (TO_DAYS('2011-04-03')),
+      PARTITION p20110403 VALUES LESS THAN (TO_DAYS('2011-04-04')),
+      PARTITION p20110404 VALUES LESS THAN (TO_DAYS('2011-04-05')),
+      ...
+      PARTITION p20110426 VALUES LESS THAN (TO_DAYS('2011-04-27')),
+      PARTITION p20110427 VALUES LESS THAN (TO_DAYS('2011-04-28')),
+      PARTITION p20110428 VALUES LESS THAN (TO_DAYS('2011-04-29')),
+      PARTITION p20110429 VALUES LESS THAN (TO_DAYS('2011-04-30')),
+      PARTITION future VALUES LESS THAN MAXVALUE
+    );
+
+Partitions cannot be, natively, created on-the-fly. We must create partitions manually. Therefore, it is not possible to, for example, setup a new partition each day (without some other intervention). When partitioning, we set the total number of partitions explicitely.
+
+The general concensus for creating new partitions as they are needed is to create a database scheduled event to run a partitioning action at regular intervals (e.g. each night).
+
+One potential optimisation is to create a set of partitions and also leave an empty partition to handle everything beyond the current max value. Once we reach the time where the last partition is needed, we split this into two so that we still have an empty partition to use. This is efficient as partitioning an empty partitions essentially has no overhead.
+  (Unconfirmed, only seen in a single StackOverflow answer).
+
+Functions for partitioning can be one of several types:
+  * RANGE - Based on the value of a field falling within a range
+  * HASH - Based on a hashing function on a column value
+  * LIST - Based on a value of a field being in a predefines list of values for a given partition
+  * A few others...
+
+We can partition an existing table using and ALTER TABLE query such as the simple one below:
+  ALTER TABLE t1
+  PARTITION BY HASH(id)
+  PARTITIONS 6;
+
+
+####################
+Code Snippets
+####################
+
+Create table with partitions:
+  CREATE TABLE sale_mast (bill_no INT NOT NULL, bill_date TIMESTAMP NOT NULL, 
+  cust_code VARCHAR(15) NOT NULL, amount DECIMAL(8,2) NOT NULL)  
+  PARTITION BY RANGE (UNIX_TIMESTAMP(bill_date))(
+  PARTITION p0 VALUES LESS THAN (UNIX_TIMESTAMP('2013-04-01')), 
+  PARTITION p1 VALUES LESS THAN (UNIX_TIMESTAMP('2013-07-01')), 
+  PARTITION p2 VALUES LESS THAN (UNIX_TIMESTAMP('2013-10-01')), 
+  PARTITION p3 VALUES LESS THAN (UNIX_TIMESTAMP('2014-01-01')));
+
+
+Add values to above table:
+  INSERT INTO sale_mast VALUES (1, '2013-01-02', 'C001', 125.56), 
+  (2, '2013-01-25', 'C003', 456.50), 
+  (3, '2013-02-15', 'C012', 365.00), 
+  (4, '2013-03-26', 'C345', 785.00), 
+  (5, '2013-04-19', 'C234', 656.00), 
+  (6, '2013-05-31', 'C743', 854.00), 
+  (7, '2013-06-11', 'C234', 542.00), 
+  (8, '2013-07-24', 'C003', 300.00), 
+  (8, '2013-08-02', 'C456', 475.20);
+
+
+View entire table (As if partitions were not there):
+  SELECT * FROM sale_mast;
+
+
+View partitions and row count:
+  SELECT PARTITION_NAME, TABLE_ROWS FROM INFORMATION_SCHEMA.PARTITIONS WHERE TABLE_NAME='sale_mast';
+
+
+Delete a partition:
+  ALTER TABLE sale_mast DROP PARTITION p0, p1;
+
+
+Delete a partition's data (Leaving an empty partition):
+  ALTER TABLE sale_mast TRUNCATE PARTITION p0;
+
+
+Split a partition into multiple (Verify this is correct):
+  ALTER TABLE tbl REORGANIZE PARTITION future
+  INTO (
+    PARTITION from20150606 VALUES LESS THAN (736121),
+    PARTITION future VALUES LESS THAN MAXVALUE
+  )
+
+
+Setting up a generic scheduled event to run at 13:00 each day:
+  CREATE EVENT IF NOT EXISTS `my_event`
+  ON SCHEDULE
+    EVERY 13 DAY_HOUR
+    COMMENT 'Running my_event...'
+    DO
+      [SOME QUERY]
+
+
+################
+Resources
+################
+
+Round robin date partitioning (pretty much exactly the use case we have): https://planet.mysql.com/entry/?id=21440
