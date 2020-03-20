@@ -7,7 +7,7 @@ Hibernate is a Java framework for data persistence (database connectivity). One 
 By utilising Hibernate, there is no need to build up queries or interface with the JDBC directly. One major advantage of this is that the code does not need to depend on any specific RDBMS and there is no need to switch between SQL dialects. All major RDBMS technologies are supported.
 
 ## Architecture
-![Hibernate Architecture Diagram](./media/HibernateArchitecture.png)
+![Hibernate Architecture Diagram](/media/HibernateArchitecture.png)
 
 Persistence objects are POJOs which Hibernate can interpret and map to a database. The Java application itself requests a session in order to interact with Hibernate. This session comes from a session factory which serves the objects in-accordance with the configuration created by the engineer. The session is used to establish a physical connection to the database.
 
