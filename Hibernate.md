@@ -79,14 +79,26 @@ The equivalent annotated object may look like this:
 
 ```java
 @Entity
+@Table(name = "EMPLOYEE")
 @Getter
 @Setter
 @NoArgsConstructor
 public class Employee {
-   private int id;
-   private String firstName;
-   private String lastName;   
-   private int salary;  
+
+  @Id
+  @GeneratedValue
+  @Column(name = "id")
+  private int id;
+
+  @Column(name = "first_name")
+  private String firstName;
+
+  @Column(name = "last_name")
+  private String lastName;
+
+  @Column(name = "salary")
+  private int salary;
+
 }
 ```
 For sake of readability, the constructors and accessor methods have been included using Lombok annotations. The `@Entity` annotation is what identifies this object as a Hibernate persistence object.
@@ -101,7 +113,7 @@ A POJO that is to be mapped to a table must follow a set of rules:
 
 ## Transactions
 
-### Barebones
+### Manual
 A barebones way to interact with the database via Hibernate sessions may be as follows:
 
 ```java
@@ -110,7 +122,7 @@ Transaction tx = null;
 
 try {
    tx = session.beginTransaction();
-   // do some work
+   session.save(new Employee("Mike", "Green", 0));
    tx.commit();
 }
 
@@ -125,7 +137,56 @@ catch (Exception e) {
 Sessions should live for as little time as possible as they are usually not thread-safe. Therefore, the above code obtains a new session from the session factory, builds up a transaction, then commits (executes) the transaction. We can also rollback the transaction if some error occurred during the commit.
 
 ### Spring
+It is obvious that there would be a lot of boilerplate if creating transactions manually - particularly with exception handling. Luckily, Spring provides a number of classes that will handle the boilerplate for many common CRUD use cases.
 
+By creating an interface which extends `JpaRepository`, we are able to call methods on this interface such as `save()` and `delete()`. These methods will create and manage the transaction behind the scenes.
+
+For example, given a repository interface which extends `JpaRepository`:
+
+```java
+public interface EmployeeRepository extends JpaRepository<Employee, Long> {
+}
+```
+
+Elsewhere in the code we can then call `save()` on the repository to save an employee to the database:
+
+```java
+employeeRepository.save(new Employee("Mike", "Green", 0));
+```
+
+No handling of the session or the transaction was necessary.
+
+## Queries
+Queries can be built up using either SQL or HQL. HQL is recommended as this gives you an object-oriented experience with the database. Using SQL negates the advantages that Hibernate provides.
+
+The following demonstrates a very basic usage of a HQL query:
+
+```java
+String hql = "FROM Employee E WHERE E.firstName = Mike";
+Query query = session.createQuery(hql);
+List results = query.list();
+```
+
+In this query we are selecting all employees from the database (`SELECT *` from SQL is implicit in HQL queries unless some other `SELECT` clause is added) where the employee has a `firstName` of `Mike`. Note how we are using the object variable name of `firstName` rather than the database column name of `first_name`.
+
+As can be seen above, HQL is similar in format to SQL but contains additional features. One such feature is named parameters. These allow substitution of parts of the query with actual values with automatic string sanitation to prevent against injection attacks:
+
+```java
+String hql = "FROM Employee E WHERE E.firstName = :employee_first_name";
+Query query = session.createQuery(hql);
+query.setParameter("employee_first_name", "Mike");
+List results = query.list();
+```
+
+Custom queries can be added to a Spring JpaRepository interface using HQL inside a `@Query` annotation:
+
+```java
+public interface EmployeeRepository extends JpaRepository<Employee, Long> {
+
+    @Query("FROM Employee E WHERE E.firstName = :employee_first_name")
+    Optional<Employee> findEmployeeWithFirstName(@Param("employee_first_name") String firstName);
+}
+```
 
 # Resources
 * https://docs.jboss.org/hibernate/orm/3.3/reference/en/html/
