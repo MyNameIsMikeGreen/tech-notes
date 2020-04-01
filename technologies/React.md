@@ -116,3 +116,24 @@ function MyParentComponent() {
 
 ReactDOM.render( <MyParentComponent /> );
 ```
+
+## State
+
+A component requires state to be anything more than a dumb static object. Therefore, we need a way of setting and getting variables from a global scope.
+
+To do this, we use `useState()`. This function creates a state variable, and returns pointers to the functions that get and set the variable (accessor methods).
+
+The pointers are returned in an array in the form [getter, setter] from `useState()` and can then be used wherever else in the function that state variable is required. The value will be maintained even after leaving the component's function and returning to it.
+
+For example:
+
+```javascript
+function Button(){
+  const [counterValue, setCounterValue] = useState(0);
+  return <button onClick={() => setCounterValue(counterValue() + 1)}>
+    {counterValue}
+  </button>;
+}
+```
+
+In the above example, we make a button with text set to equal the stateful variable's value. This is done by calling `useState()` to create the variable, and then using JSX's interpolation functionality to insert the result of the variable's getter function.
