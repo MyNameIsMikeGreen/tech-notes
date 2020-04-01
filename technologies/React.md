@@ -42,12 +42,7 @@ It is declarative. The programmer describes what is to be built, React handles h
   ```javascript
   <MyComponent />
   ```
-  And, when fully compiled, will end up looking like this: **[CONFIRM THIS]**
-  ```javascript
-  <MyComponent>
-      <h1>This is my component</h1>;
-  </MyComponent>
-  ```
+  * What we are actually returning from the function is a `React.createElement()` function call. It is just hidden away by the use of JSX.
 
 ## JSX
 
@@ -70,4 +65,54 @@ Equivalent React API calls which the JSX is converted into:
 React.createElement("div", {className: "container"},
   React.createElement("h1", null, "Getting Started")
 )
+```
+
+# Usage
+
+## Rendering
+
+The equivalent of a `main` function when using React is:
+
+```
+ReactDOM.render();
+```
+
+This is where all of the calls and other JavaScript functions will reside.
+
+This function takes two arguments: The element to be rendered, the parent DOM element to be rendered within.
+
+Note how the function accepts only a single element. It is not possible to simply place multiple JSX statements inside here as they are ultimately just function calls and would not be valid JavaScript syntax. Instead, if we have multiple elements to render (as we would in almost all scenarios), we can do multiple things, but they are all ultimately working to wrap the elements inside a single parent:
+
+* Insert the elements into an array and pass the array to `ReactDOM.render()`:
+```javascript
+ReactDOM.render( [<MyComponent1 />], [<MyComponent2 />] );
+```
+
+* Wrap the components inside a common parent element and pass that to `ReactDOM.render()`:
+```javascript
+ReactDOM.render( <div> <MyComponent1 /> <MyComponent2 /> <div/> );
+```
+
+* Wrap the components inside a React fragment element which is designed especially for this purpose and pass that to `ReactDOM.render()`:
+```javascript
+ReactDOM.render( <React.fragment> <MyComponent1 /> <MyComponent2 /> <div/> );
+```
+
+* As above, but with the React fragment shorthand notation:
+```javascript
+ReactDOM.render( <> <MyComponent1 /> <MyComponent2 /> </> );
+```
+
+This can be then made to look cleaner inside the renderer by calling off to a single function component:
+```javascript
+function MyParentComponent() {
+    return (
+      <>
+        <MyComponent1 />
+        <MyComponent2 />
+      <>
+    );
+}
+
+ReactDOM.render( <MyParentComponent /> );
 ```
