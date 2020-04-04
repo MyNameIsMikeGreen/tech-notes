@@ -7,7 +7,7 @@ If encryption is enabled on a Redis cache, `redis-cli` cannot natively connect t
 1. SSH onto the appropriate client machine
 2. Install the `stunnel` and `redis` using whichever package manager is available.
   * For Amazon's Alpine image, use `apk --update add [package]`
-3. Create `etc/stunnel/redis-cli.conf` (Don't put other shit in here, websites are wrong and stupid):
+3. Create `/etc/stunnel/redis-cli.conf` (Don't put other shit in here, websites are wrong and stupid):
 ```
 fips = no
 setuid = root
