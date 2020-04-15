@@ -29,13 +29,23 @@ If we have an application with instances across regions, we need to setup DNS en
 ## Internal IP Addresses
 
 ### Subnet Masks and CIDR Notation
-Each subnet must be created with a specification of which IP addresses that subnet manages. In the old days, this would be noted using an IP address and a subnet mask. However, more commonly, especially when using AWS, the CIDR notation is used. For example, an IP address of 131.10.55.70 with a subnet mask of 255.0.0.0 (which has 8 network bits) would be represented as 131.10.55.70/8 in CIDR notation ([Source](http://www.controltechnology.com/Files/common-documents/application_notes/CIDR-Notation-Tutorial)). What this means in practice is that all the addresses in this particular subnet are in the form 131.x.x.x.
+Each subnet must be created with a specification of which IP addresses that subnet manages. In the old days, this would be noted using an IP address and a subnet mask. However, more commonly, especially when using AWS, the CIDR notation is used. For example, an IP address of `131.10.55.70` with a subnet mask of `255.0.0.0` (which has 8 network bits) would be represented as `131.10.55.70/8` in CIDR notation ([Source](http://www.controltechnology.com/Files/common-documents/application_notes/CIDR-Notation-Tutorial)). What this means in practice is that all the addresses in this particular subnet are in the form `131.x.x.x`.
 
 ### AWS IP Address Ranges
 
 AWS subnets can be specified as being between /16 and /28 inclusive. However, the first 4 and final 4 addresses in that range are reserved by AWS and are not usable by the customer.
 
 CIDR ranges must not overlap between subnets in the same VPC. Each subnet manages a mutually exclusive set of IP addresses.
+
+### Public Internet Connectivity for a Private Instance
+
+ A private subnet only has internal IP addresses assigned to its instances. Therefore, it is not possible to directly connect to them from the public internet. However, it may be desirable to connect to the instances from the internet in some circumstances. In order to do this, you can use a *bastion* (Also known as a *jump box*) to proxy your requests.
+
+ A bastion instance is set up in a public subnet and and internet gateway set up on the VPC. Through the internet gateway, an external entity can connect to the bastion as it would any other instance inside a public subnet - via the internet gateway. The bastion instance would then connect to the target instance on the external source's behalf using typical subnet-to-subnet methods such as a routing table.
+
+ A limitation of a bastion is that it only supports requests which have been initiated from outside the VPC. It does not provide the private instance with the ability to initiate requests to the public internet. To accomplish this, a NAT gateway can be instantiated in the public subnet. This acts similarly to the bastion, but handles traffic initiated by the private instance. Through this, the private instance can perform actions such as updating software.
+
+ See [Access Control](#access-control) for further details on routing technologies.
 
 ## External IP Addresses
 
@@ -66,6 +76,10 @@ Peer VPCs can be anywhere regardless of AWS or region.
 ## VPNs
 
 A VPN can be set up to connect to a VPC from an external network. This allows communication to instances as if the source were inside the VPC.
+
+## Route Tables / Routers
+
+Route tables define how to route traffic that is coming into or out of subnets.
 
 ## Internet Gateways
 
