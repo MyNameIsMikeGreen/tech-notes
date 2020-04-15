@@ -37,25 +37,27 @@ AWS subnets can be specified as being between /16 and /28 inclusive. However, th
 
 CIDR ranges must not overlap between subnets in the same VPC. Each subnet manages a mutually exclusive set of IP addresses.
 
-### Public Internet Connectivity for a Private Instance
-
- A private subnet only has internal IP addresses assigned to its instances. Therefore, it is not possible to directly connect to them from the public internet. However, it may be desirable to connect to the instances from the internet in some circumstances. In order to do this, you can use a *bastion* (Also known as a *jump box*) to proxy your requests.
-
- A bastion instance is set up in a public subnet and and internet gateway set up on the VPC. Through the internet gateway, an external entity can connect to the bastion as it would any other instance inside a public subnet - via the internet gateway. The bastion instance would then connect to the target instance on the external source's behalf using typical subnet-to-subnet methods such as a routing table.
-
- A limitation of a bastion is that it only supports requests which have been initiated from outside the VPC. It does not provide the private instance with the ability to initiate requests to the public internet. To accomplish this, a NAT gateway can be instantiated in the public subnet. This acts similarly to the bastion, but handles traffic initiated by the private instance. Through this, the private instance can perform actions such as updating software.
-
- See [Access Control](#access-control) for further details on routing technologies.
-
 ## External IP Addresses
 
 An instance is not automatically given a public IP address. One must be explicitly requested in the instance configuration.
 
 By default, if an instance is deleted, it will lose its public IP address. When recreated, it will lose the IP address it previously had. To maintain a static IP address, we can use an *elastic IP address*. Elastic IP addresses are assigned to an instance, and will remain whether the instance is destroyed or created. This IP address can also be migrated over to a new instance if desired. This, in effect, is a mechanism for reserving an IP address for your exclusive use.
 
+## DNS
+
+AWS has its own DNS service known as *Route 53*. It is a fairly typical DNS service which allows a customer to register domain names and point these domains to an IP address.
+
+Route 53, being an Amazon product, can integration with many other AWS services. Instead of the DNS entry pointing simply to a static IP address, it can point to various locations in AWS such as:
+  * Load balancers
+  * EC2 instances
+  * S3 buckets
+  * API Gateways
+
 # Access Control
 
-## Security Groups
+## Technologies
+
+### Security Groups
 
 Security groups are policies which determine who/what can connect to an instance. The policy works on the whitelist model *(CONFIRM THIS)* and is made up of:
 * The instance to protect (destination)
@@ -63,31 +65,99 @@ Security groups are policies which determine who/what can connect to an instance
 * The protocol
 * The port
 
-## Network Access Control Lists (NACLs)
+### Network Access Control Lists (NACLs)
 
 A policy defining who/what is allowed to send/receive traffic for a particular subnet. It is similar to security groups, operating on subnets rather than instances. One NACL may be applied to multiple subnets at once.
 
-## Peered VPCs
+### Peered VPCs
 
 VPCs can be defined as *peers* of each other. Peered VPCs act as if they were part of the same VPC.
 
 Peer VPCs can be anywhere regardless of AWS or region.
 
-## VPNs
+Peering is not transitive. An explicit peering must be established between any two VPCs which wish to communicate with each other, they cannot use a common peer to do so.
+
+### VPNs
 
 A VPN can be set up to connect to a VPC from an external network. This allows communication to instances as if the source were inside the VPC.
 
-## Route Tables / Routers
+### Route Tables / Routers
 
 Route tables define how to route traffic that is coming into or out of subnets.
 
-## Internet Gateways
+### Internet Gateways
 
 Internet gateways are used to provide access to a VPC from the public internet.
 
-## NAT Gateway
+### NAT Gateways
 
-Similar to internet gateways, these provide access to the public internet in a VPC but instead for private subnets.
+NAT gateways sit inside a public subnet and offer instances within a private subnet the ability to make a request and receive a response out to the public internet.
+
+### Bastion / Jump Box
+
+These are special EC2 instances which act as a proxy for traffic to instances in private subnets which are initiated from the public internet. At a high level, NAT Gateways and Bastions do the same thing, but offer a different end to initiate the request.
+
+## Allowing Access to/from the Internet for a Private Instance
+
+### Bastions and NAT Gateways
+
+A private subnet only has internal IP addresses assigned to its instances. Therefore, it is not possible to directly connect to them from the public internet. However, it may be desirable to connect to the instances from the internet in some circumstances. In order to do this, you can use a *bastion* (Also known as a *jump box*) to proxy your requests.
+
+A bastion instance is set up in a public subnet and and internet gateway set up on the VPC. Through the internet gateway, an external entity can connect to the bastion as it would any other instance inside a public subnet - via the internet gateway. The bastion instance would then connect to the target instance on the external source's behalf using typical subnet-to-subnet methods such as a routing table.
+
+A limitation of a bastion is that it only supports requests which have been initiated from outside the VPC. It does not provide the private instance with the ability to initiate requests to the public internet. To accomplish this, a NAT gateway can be instantiated in the public subnet. This acts similarly to the bastion, but handles traffic initiated by the private instance. Through this, the private instance can perform actions such as updating software.
+
+### VPNs
+
+If setting up and maintaining a bastion instance is not desirable, it is possible to manage a private instance via a VPN. To do this, a *VPN Gateway* is set up on the VPC in a similar fashion as an *Internet Gateway* would be. On the client-side, a *Customer Gateway* would be set up. The two gateways would then communicate with each other via a VPN connection. The VPN gateway would be communicating to the private instance via the routing table in a similar way as the bastion would be in the other scenario.
+
+# Load Balancing
+It may not be appropriate for one entity to handle all the traffic for a system. Therefore, AWS's *Elastic Load Balancing* (ELB) can distribute traffic amongst the appropriate:
+* EC2 Instances
+* Lambdas
+* IP Addresses
+* Containers
+* On-Premises Resources
+
+A load balancer can be one of two types:
+* Application load balancer
+  * Operates at level 7 (application layer) of the OSI model
+  * As it acts at the HTTP/HTTPS level, authentication management can be offloaded to the load balancer to reduce computing pressure on applications. It also centralises certificate management at the load balancer level, easing management concerns.
+  * This means that authentication and other overhead operations can be handled by the load balancer rather than the application if desired.
+* Network load balancer
+  * Operates at level 4 (transport layer) of the OSI model.
+  * Suitable for very high throughput and long-lived connection protocols such as TCP.
+
+# API Gateway
+
+AWS's *API Gateway* is a standalone system for accepting HTTP/REST and WebSocket requests, extracting any variables/headers/bodies and forwarding these onto some application or service which doesn't have the ability to accept these requests itself. From a Java developer's perspective, it is like Amazon have extracted the controller layer of a Spring application into a service.
+
+It also has the capability to transform any response the application/service provides as a response before returning it to the client.
+
+## Authentication
+
+API Gateway supports several authentication methods:
+* Amazon Cognito
+  * For integration with external identity providers such as Google and Facebook.
+* AWS Identity and Access Management (AIM)
+* Lambda Authorisers
+  * A Lambda function which determines authorisation
+  * Commonly used for OAuth, SAML, or JWT.
+
+## Additional Features
+* Throttling
+  * Request rates can be limited in various ways. Such as by total amount of concurrent requests or rate of requests in a specific time frame.
+  * Users of the gateway can be tracked by the use of API keys and HTTP 429 responses returned if the user is requesting an endpoint too frequently.
+* Release management
+  * Support for development stages (e.g. dev, stg, prd)
+  * Canary releases can be used to direct a certain proportion of the traffic to certain development stages. This is useful in testing out new features.
+* Response mocking
+  * If the end service has not been developed yet, API Gateway can mock the response of this service and return it back to the client.
+* SDK generation
+  * Once an API has been setup in API Gateway, there is a tool available to generate an SDK in a variety of languages which can call the API Gateway endpoint.
+* Documentation generation
+  * Once an API has been setup in API Gateway, there is a tool available to generate documentation for the API in various formats including Swagger.
 
 # Resources
+* https://app.pluralsight.com/player?course=aws-network-design-getting-started
 * http://www.controltechnology.com/Files/common-documents/application_notes/CIDR-Notation-Tutorial
