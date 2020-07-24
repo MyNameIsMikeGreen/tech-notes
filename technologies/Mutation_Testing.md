@@ -50,6 +50,7 @@ For Java-based projects, Pitest is the most commonly used tool for mutation test
       <version>LATEST</version>
     </plugin>
     ```
+  * Run Pitest with `mvn org.pitest:pitest-maven:mutationCoverage`.
   * The parameters of the tests can be altered using a variety of tags in this plugin block. See the official documentation for details.
 
 # Resources
