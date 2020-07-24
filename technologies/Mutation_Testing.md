@@ -34,6 +34,24 @@ It is perfectly reasonable for some mutants to survive in some circumstances, fo
 
 To fully understand the results of a mutation test, the developer should look at the code that was under test and assess whether an issue has truly been identified.
 
+# Usage
+
+For Java-based projects, Pitest is the most commonly used tool for mutation testing. It is easily used with existing projects in a variety of ways:
+
+* InteliJ Plugin (`PIT mutation testing Idea plugin`)
+  * Runs Pitest within the IDE itself.
+  * Facilitates the creation of a `PIT Runner` run configuration.
+* Maven Plugin
+  * To add Pitest to a maven project, simply add the plugin details to the pom.xml:
+    ```xml
+    <plugin>
+      <groupId>org.pitest</groupId>
+      <artifactId>pitest-maven</artifactId>
+      <version>LATEST</version>
+    </plugin>
+    ```
+  * The parameters of the tests can be altered using a variety of tags in this plugin block. See the official documentation for details.
+
 # Resources
 * ["Mutation Testing: Case Studies on Spring Boot APIs" Presentation by Pivotal](https://www.youtube.com/watch?v=88fDcPurp-Y)
 * https://pitest.org/
