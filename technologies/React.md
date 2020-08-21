@@ -95,7 +95,7 @@ ReactDOM.render( <div> <MyComponent1 /> <MyComponent2 /> <div/> );
 
 * Wrap the components inside a React fragment element which is designed especially for this purpose and pass that to `ReactDOM.render()`:
 ```javascript
-ReactDOM.render( <React.fragment> <MyComponent1 /> <MyComponent2 /> <div/> );
+ReactDOM.render( <React.fragment> <MyComponent1 /> <MyComponent2 /> <React.fragment/> );
 ```
 
 * As above, but with the React fragment shorthand notation:
