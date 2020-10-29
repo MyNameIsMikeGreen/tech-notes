@@ -5,9 +5,10 @@ If encryption is enabled on a Redis cache, `redis-cli` cannot natively connect t
 ## Procedure
 
 1. SSH onto the appropriate client machine
-2. Install the `stunnel` and `redis` using whichever package manager is available.
+2. Install `stunnel4`,`redis-tools` and (optionally) `net-tools` using whichever package manager is available.
   * For Amazon's Alpine image, use `apk --update add [package]`
-3. Create `/etc/stunnel/redis-cli.conf` (Don't put other shit in here, websites are wrong and stupid):
+  * For many Debian-based images, use `apt install [packages]`
+3. Create `/etc/stunnel/stunnel.conf`:
 ```
 fips = no
 setuid = root
@@ -16,10 +17,10 @@ pid = /var/run/stunnel.pid
 debug = 7
 delay = yes
 [redis-cli]
-    client = yes
-    accept = 127.0.0.1:6379
-    connect = [Redis_url_including_port]
+  client = yes
+  accept = 127.0.0.1:6379
+  connect = [REDIS_URL_INCLUDING_PORT]
 ```
 4. Run `stunnel`
-5. Verify tunnel creation using `netstat -tulnp | grep -i stunnel`
-6. Connect to redis using `redis-cli -h localhost -p 6379 -a [password]`
+5. (Optionally) Verify tunnel creation using `netstat -tulnp | grep -i stunnel`
+6. Connect to redis using `redis-cli -h localhost -p 6379 -a [REDIS_PASSWORD]`
