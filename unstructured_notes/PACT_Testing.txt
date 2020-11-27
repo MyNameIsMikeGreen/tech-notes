@@ -1,0 +1,11 @@
+Consumer generates a list of all the interactions (e.g. HTTP requests) that it intends to make when it runs.
+These interactions are recorded.
+The other side of these interactions (the provider) is mocked out for the consumer's tests.
+The interactions (contract) is saved to an external datastore/service.
+When the producer runs tests, it pulls the latest contracts from the datastore and tests whether it fulfills these contracts.
+
+This way, the interaction between the two are tested without them being physically linked when testing either side.
+
+PACT tests are consumer-driven. The consumer defines what it needs/expects.
+Many consumers can declare contracts for the same consumer.
+  But it is intended only for internal services where the consumer count is a manageable number - it isn't suitable, for example, for a large website - it would be impossible to model every possible consumer.

@@ -69,6 +69,12 @@ React.createElement("div", {className: "container"},
 
 # Usage
 
+## Setup
+
+* Install `npm` (Node Package Manager)
+* Install `npx` (Node Package eXecutor)
+* Easily create a project skeleton by running `npx create-react-app [new_app_name]` and deleting the contents of the `src/` directory.
+
 ## Rendering
 
 The equivalent of a `main` function when using React is:
@@ -137,3 +143,6 @@ function Button(){
 ```
 
 In the above example, we make a button with text set to equal the stateful variable's value. This is done by calling `useState()` to create the variable, and then using JSX's interpolation functionality to insert the result of the variable's getter function.
+
+# Resources
+* https://reactjs.org/tutorial/tutorial.html
