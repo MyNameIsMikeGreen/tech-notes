@@ -93,4 +93,5 @@ public class AsynchronousSpringEventsConfig {
 ```
 
 # Resources
+* [Minimalistic example of Spring events usage (MyNameIsMikeGreen GitHub)](https://github.com/MyNameIsMikeGreen/spring-events-example)
 * https://www.baeldung.com/spring-events
