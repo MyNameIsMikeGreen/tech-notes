@@ -112,8 +112,10 @@ Operators are fields prefixed with `$` in MongoDB commands indicating complex or
   * Renames a field.
   * All values remain intact.
 
-
 ## Delete
+* `db.[COLLECTION].remove( {[FIELD_NAME]: [VALUE]} )`
+  * Deletes the document matching the condition.
+  * The inverse of the `find()` command.
 
 # Resources
 * https://www.mongodb.com/
