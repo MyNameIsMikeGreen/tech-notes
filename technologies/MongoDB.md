@@ -53,6 +53,49 @@ In the background, MongoDB has a **balancer** process which rebalances the thres
 
 In order for the client application to know which server to communicate with on any given document, it makes requests to one of a set of **config servers** which hold the sharding rules and the details of the servers in the cluster. The client, through its use of **mongos** will have cached these details so that the config servers are not contacted for every request.
 
+# Usage
+As most DBMSs do, mongo provides a command-line tool for interacting with a MongoDB instance. This tool is aptly-named `mongo`. This section will demonstrate several of the common commands that will be used within this and within similar MongoDB clients.
+
+## Navigation
+* `show dbs`
+  * Shows databases managed by the connected MongoDB instance.
+* `use [DATABASE]`
+  * Sets the database that subsequent actions will be performed on.
+  * If the database does not yet exist, will also create it.
+  * The database will not appear in the `show dbs` output if it does not yet contain a collection.
+* `show collections`
+  * Shows collections within the active database.
+* `[SOME_COMMAND].pretty()`
+  * Prettifies the output of a command containing JSON.
+
+## Create
+* `db.createCollection('[COLLECTION]')`
+  * Creates a new collection.
+* `db.[COLLECTION].insert([DOCUMENT])`
+  * Inserts a new document with the content specified into the collection.
+* `db.[COLLECTION].insertMany([ [DOCUMENT1], [DOCUMENT2], ... ])`
+  * As above, but inserts multiple documents at once.
+  * This command takes a list of MongoDB JSON documents using standard JSON list syntax (i.e. `[]`).
+
+## Read
+* `db.[COLLECTION].find()`
+  * Finds all documents in the collection.
+* `db.[COLLECTION].find( {[FIELD_NAME]: [VALUE]} )`
+  * Finds all documents matching the pattern provided.
+* `db.[COLLECTION].find().sort( {[FIELD_NAME]: 1} )`
+  * Finds all documents in the collection and then sorts them by `[FIELD_NAME]`.
+  * `1` = ascending.
+  * `2` = descending.
+* `db.[COLLECTION].find().limit(2)`
+  * Finds at most 2 documents matching the find condition (if any).
+* `db.[COLLECTION].find().forEach(function(doc) {[SOME_JAVASCRIPT]} )`
+  * Performs a Javascript function on each document returned from the find command.
+  * For example: `function(doc) {print("This is my document: " + doc)}`
+
+## Update
+
+## Delete
+
 # Resources
 * https://www.mongodb.com/
 * [Understanding MongoDB - Frank Kane - YouTube](https://www.youtube.com/watch?v=UFVFIKduXpo)
