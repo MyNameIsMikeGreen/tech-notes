@@ -93,10 +93,30 @@ As most DBMSs do, mongo provides a command-line tool for interacting with a Mong
   * For example: `function(doc) {print("This is my document: " + doc)}`
 
 ## Update
+* `db.[COLLECTION].update( [MATCH_CONDITION], [NEW_DOCUMENT] )`
+  * `[MATCH_CONDITION]` in this case is very similar to the condition passed to `find()`. It can be any structure that can be used to describe a unique document in the collection. Most commonly, the `_id` field would be used here (e.g. `{_id: [SOME_ID]}`).
+  * `[NEW_DOCUMENT]` is what will replace the existing document. If not using any MongoDB operator (See below), this will completely replace the existing document and is therefore no different to deleting and inserting.
+* `db.[COLLECTION].update( [MATCH_CONDITION], { $set: { [EXISTING_FIELD]: [NEW_VALUE] } } )`
+  * In contrast to the example above, the set operator can be used to update only certain fields within the found document, leaving all other fields intact.
+
+### Operators
+Operators are fields prefixed with `$` in MongoDB commands indicating complex or dynamic behaviour. There are different built-in operators to achieve different things. They offer us the opportunity to not simply work with static blobs of JSON when updating, but allow us access to individual fields within documents and their values.
+
+* `$set: { [EXISTING_FIELD]: [NEW_VALUE] }`
+  * Seen previously.
+  * Sets a new value to an existing field.
+  * Leaves the rest of the document intact.
+* `$inc: { [EXISTING_FIELD]: 5 }`
+  * Increments an existing integer field by 5.
+* `$rename: { [EXISTING_FIELD]: [NEW_FIELD_NAME] }`
+  * Renames a field.
+  * All values remain intact.
+
 
 ## Delete
 
 # Resources
 * https://www.mongodb.com/
 * [Understanding MongoDB - Frank Kane - YouTube](https://www.youtube.com/watch?v=UFVFIKduXpo)
-* [Understanding MongoDB (2020 Update)- Frank Kane - YouTube](https://www.youtube.com/watch?v=HWZRio7ukrk)
+* [Understanding MongoDB (2020 Update) - Frank Kane - YouTube](https://www.youtube.com/watch?v=HWZRio7ukrk)
+* [MongoDB Crash Course - Traversy Media - YouTube](https://www.youtube.com/watch?v=-56x56UppqQ)
