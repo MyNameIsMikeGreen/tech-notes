@@ -15,11 +15,13 @@ setuid = root
 setgid = root
 pid = /var/run/stunnel.pid
 debug = 7
+options = NO_SSLv2
+options = NO_SSLv3
 delay = yes
 [redis-cli]
-  client = yes
-  accept = 127.0.0.1:6379
-  connect = [REDIS_URL_INCLUDING_PORT]
+client = yes
+accept = 127.0.0.1:6379
+connect = [REDIS_URL_INCLUDING_PORT]
 ```
 4. Run `stunnel`
 5. (Optionally) Verify tunnel creation using `netstat -tulnp | grep -i stunnel`
