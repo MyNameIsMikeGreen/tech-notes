@@ -43,7 +43,7 @@ May be a self-managed local cluster of related Kafka instances or a cloud-hosted
 ### Segment
 * At the lowest level, Kafka is ultimately storing messages it receives in log files on partitions.
 * Instead of storing one gigantic log file for a partition, Kafka stores it as a set of rolling log files.
-* This has the added benefit of making it simple to implement TTLs on topics as the Kafka system can simply delete old segments.
+* This has the added benefit of making it simple to implement data retention times on topics as the Kafka system can simply delete old segments.
 * Unless fine tuning a Kafka configuration, most people do not need to care about segments as the details of log storage are mostly abstracted away.
 
 ## Producer
@@ -103,7 +103,39 @@ This represents the time that the event occurred. This can either be written exp
 * If we want to guarantee that some specific set of messages will be stored and consumed in order, we must ensure that they are written to the same partition.
   * For example, if we have a topic for storing temperatures and we have many IoT devices reporting their current temperature, we may want to ensure that each individual device's temperatures are stored cronologically within the topic.
 * To guarantee that similar messages will be handled by the same partition, we can set those messages to each have the same key.
-  * Using the above example, we may set the key for one device's messages to be `device-1` (instead of, for example, being random). This way, all of the messages from this device will be sent to whichever partition is registered as being in chage of messages with the key `device-1` (or, more technically, whatever `device-1` is hashed to).
+  * Using the above example, we may set the key for one device's messages to be `device-1` (instead of, for example, being random). This way, all of the messages from this device will be sent to whichever partition is registered as being in chage of messages with the key `device-1`.
+
+# Data Retention
+* Data held within a Kafka cluster can optionally be set to be removed after a certain amount of time.
+* By default, data is held for 1 week before being automatically deleted.
+* There is no restriction on the amount of time data can be set to be retained. It can be as short as desired or as long as desired.
+* We may opt to keep data indefinately.
+* Old data is removed from a partition by deleting old segments.
+
+# Acknowledgment
+* There is a trade-off between reliability of message sending and throughput. One way in which the developer can decide whether they value one or the other is by selecting one of the acknowledgment modes.
+* When sending, we can opt for one of three acknowledgment modes:
+  * **0: None**
+    * Do not wait for acknowledgment from the broker.
+    * As long as the TCP connection wasn't broken, producer assumes the broker received the message.
+    * "Fire and forget".
+    * Risk of losing messages if the broker was having difficulties at the time.
+  * **1: Leader**
+    * Await acknowledgement from *only* the leader broker for the topic before continuing with further activites.
+    * Acknowledgment confirms that the message was written to *a* disk somewhere within the cluster.
+    * Producer has reasonable confidence that the message has not been lost.
+    * There is a risk of data loss if the leader broker goes down before the message has been copies to the follower brokers.
+  * **2: All**
+    * Await acknowledgments from *all* brokers managing the topic.
+    * The risk of data loss is minimal as it would require all brokers to go down for the message to be lost.
+    * Has the highest latency as the producer must wait for multiple acknowledgments before continuing with further activities.
+
+# Security
+* Kafka supports Encryption-in-Transit.
+  * Communication between the cluster and consumers/producers/Zookeeper is encrypted.
+* Kafka supports Authentication and Authorisation.
+* Kafka does not support Encryption-at-Rest.
+  * If log files need to be encrypted, this can only be acheived by either encrypting the disk that log files are stored on using OS-specific mechanisms or by manually encrypting/decrypting messages in the producer/consumer.
 
 # Resources
 * https://kafka.apache.org/
