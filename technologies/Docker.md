@@ -48,7 +48,31 @@ In the above example:
 6. Defined the command to be run when the image is executed
 
 ## Orchestrating Images: `docker-compose.yml`
-**To-Do**
+Instead of using `docker run` to launch a docker image/container with various parameters, it is possible to have these run configurations saved in a `docker-compose.yml` file and launch using this instead.
+
+Although it is possible for `docker-compose.yml` to be a direct replacement for running `docker run`, it is primarily ddesigned to orchestrate the launch of several related images at the same time.
+
+For example, if my application were a microservice which read from a message bus and wrote to a database, a `docker-compose.yml` file could hold the launch configuration for the application, an ActiveMQ bus, and a PostgreSQL database. Running `docker-compose up` in the directory containing this file would launch all 3 images at the same time.
+
+### Example
+```yaml
+services:
+  app:
+    build: .
+    ports:
+      - "5000:5000"
+  redis:
+    image: "redis:alpine"
+```
+
+In the above example:
+1. Start of the definition of each container to launch
+2. Alias for the first container to launch. In output such as logs, this contianer will be labelled by whatever name is set here.
+3. Specifies that this container should use an image built in the current directory
+4. Port exposure definition (Equivalent to `-p` in `docker run`)
+5. Map port `5000` on the local machine to port `5000` in the container
+6. Alias for the second container to launch
+7. Specifies that this container uses the `redis:alpine` image. If this image is not locally available, look for it in a repository.
 
 # Resources
 * https://docs.docker.com/
