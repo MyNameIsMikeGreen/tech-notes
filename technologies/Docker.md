@@ -2,7 +2,17 @@ Docker
 ======
 
 # Overview
-**To-Do**
+Docker is a containerisation technology for abstracting away the details of a host machine when running an application.
+
+Instead of shipping a new application to another machine (which may have a completely different setup to the machine the application was developed on), docker facilitates shipping a virtual machine alongside the application so that the stakeholders can be sure that it is being run in an equivalent environment everywhere *(Warning: this is an oversimplification, but is sufficient conceptually)*.
+
+For example, if a Python application were to be containerised, the Docker image would not only contain the Python application but it would also contain the binaries necessary to run Python and the operating system to execute those binaries.
+
+## Terms
+| Term | Definition |
+-------|-------------
+| Image | A final representation of an application/service to be executed. |
+| Container | An instance of an image that can be started/stopped. |
 
 # Usage
 ## Building an Image: `Dockerfile`
@@ -16,9 +26,9 @@ Docker
   * Install project requirements (e.g. pip, or npm)
 
 ## Running an Image Manually
-If an image is built by a local machine, it will be placed into the local Docker repository. This means it can then be run using: `docker run [IMAGE_NAME]`
+If an image is built by a local machine, it will be placed into the local Docker registry. This means it can then be run using: `docker run [IMAGE_NAME]`
 
-When this command is executed, Docker will look for an image matching the name in the local repository. If it cannot be found, the image will be searched for in a remote repository. If the image is found, the command specified by the `CMD` line in the Dockerfile used to build the image will be run.
+When this command is executed, Docker will look for an image matching the name in the local registry. If it cannot be found, the image will be searched for in a remote registry. If the image is found, the command specified by the `CMD` line in the Dockerfile used to build the image will be run.
 
 Several options/parameters can be passed alongside the `docker run` command to alter its behaviour. For example:
 
@@ -41,10 +51,10 @@ CMD [ "python", "./your-daemon-or-script.py" ]
 
 In the above example:
 1. Defines the base image
-2. Creates and sets the working directory on the image machine from which all subsequent commands will be run from
-3. Copies the `requirements.txt` from the host machine to the image machine
-4. Runs the pip command on the image machine
-5. Copies the current directory from the host machine to the image machine
+2. Creates and sets the working directory on the image from which all subsequent commands will be run from
+3. Copies the `requirements.txt` from the host machine to the image
+4. Runs the pip command on the image
+5. Copies the current directory from the host machine to the image
 6. Defined the command to be run when the image is executed
 
 ## Orchestrating Images: `docker-compose.yml`
@@ -72,7 +82,7 @@ In the above example:
 4. Port exposure definition (Equivalent to `-p` in `docker run`)
 5. Map port `5000` on the local machine to port `5000` in the container
 6. Alias for the second container to launch
-7. Specifies that this container uses the `redis:alpine` image. If this image is not locally available, look for it in a repository.
+7. Specifies that this container uses the `redis:alpine` image. If this image is not locally available, look for it in a registry.
 
 # Resources
 * https://docs.docker.com/
