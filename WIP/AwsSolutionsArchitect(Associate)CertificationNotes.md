@@ -59,10 +59,10 @@ AWS Solutions Architect (Associate) Certification Notes
   * ```json
     {
         "Version": "2012-10-17",
-        "Id": "Allow-Stuff-And-Things"
+        "Id": "Allow-Stuff-And-Things",
         "Statement": [
             {
-                "Sid": "1"
+                "Sid": "1",
                 "Effect": "Allow",
                 "Action": [
                     "ec2:AttachVolume",
