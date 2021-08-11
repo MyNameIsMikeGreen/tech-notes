@@ -468,7 +468,7 @@ AWS Solutions Architect (Associate) Certification Notes
 * TODO
 * Beyond scope of exam?
 
-## Relational Database Service (RDS)
+# Relational Database Service (RDS)
 * Managed database service for databases using SQL as a query language
   * PostgreSQL
   * MySQL
@@ -484,7 +484,7 @@ AWS Solutions Architect (Associate) Certification Notes
   * Monitoring dashboards
   * Automatic upgrades
 
-### Backups
+## Backups
 * AWS runs an automated backup of RDS instances by default
   * A full backup is ran once per day during the maintenance period
   * In addition to a full backup, transaction logs are also backed up every 5 minutes
@@ -493,7 +493,7 @@ AWS Solutions Architect (Associate) Certification Notes
 * Snapshots are backups that are run manually
   * Can be kept forever
 
-### Auto-Scaling
+## Auto-Scaling
 * When setting up an RDS instance, the storage capacity (backed by EBS) is set.
 * If the available storage is running low, RDS can be set to detect this and scale the storage capacity up automatically.
   * A upper limit can be set so that it doesn't grow forever.
@@ -502,7 +502,7 @@ AWS Solutions Architect (Associate) Certification Notes
     * The database has been low of storage for at least 5 minutes.
     * No scaling has occurred in the last 6 hours.
 
-### Read-Replicas
+## Read-Replicas
 * A near-clone of a database which can be used on a read-only basis.
 * Can take load from the main database by reducing the total number of read requests it recieves.
 * Eventually-consistent
@@ -514,7 +514,7 @@ AWS Solutions Architect (Associate) Certification Notes
   * ![IAM Policy Evaluation Flow](../media/RDSReadReplicaUseCase.png)
 * Data transfer to a read-replica is free within the sae region (even if the replicas are in different AZs)
 
-### Multi-AZ Disaster Recovery
+## Multi-AZ Disaster Recovery
 * Replicates the main database **synchronously** to another instance in another AZ.
 * The application talks to the database via a DNS name.
   * If the main database fails, the DNS will automatically failover to the backup database without the application being aware.
@@ -526,9 +526,9 @@ AWS Solutions Architect (Associate) Certification Notes
 * Read replicas can now be set up as Multi-AZ [TODO: check details].
 * Enabling Multi-AZ can be modified at runtime with no downtime.
 
-### Security
+## Security
 
-#### Encryption
+### Encryption
 * Data can be encrypted in-flight and at rest in RDS databases.
 * AES-256 encryption is supported by KMS for at-rest.
 * SSL/TLS encryption is supported by CMS for in-flight.
@@ -541,12 +541,12 @@ AWS Solutions Architect (Associate) Certification Notes
     * Delete the old database
     * Point services to the new instance
 
-#### Networking
+### Networking
 * A database should only be deployed to a private subnet.
   * i.e. it can only be accessed on the local network by services/applications on the same subnet, it should not be accessible from the public internet.
 * Security groups can (should) be applied to databases to limit the access to the database to only permitted sources.
 
-#### Access
+### Access
 * Permissions on RDS management activities are controlled by IAM policies.
   * For example, one person can be permitted to only view the list of database instances whereas another person can be permitted to create new ones.
   * This only applies to the RDS "wrapper" around the database engines, they do not dictate permissions once inside the engine (i.e. IAM has no real knowledge of PostgreSQL, MySQL, or any other engine that is actually running in the service).
@@ -556,7 +556,7 @@ AWS Solutions Architect (Associate) Certification Notes
     * This token can then be sent alongside requests to the database instance as verification to perform database actions.
     * This token only lasts for 15 minutes and a new token will need to be fetched if access is needed after this time.
 
-### Amazon Aurora
+## Amazon Aurora
 * Amazon's propriatary database engine.
 * Functionally compatible with MySQL and PostgreSQL
   * This means that either a MySQL or PostgreSQL driver can be used in an application and it will work with an Aurora database; the application won't even know it is Aurora.
@@ -597,8 +597,98 @@ AWS Solutions Architect (Associate) Certification Notes
 * Aurora has integration with AWS's machine learning services (e.g. SageMaker and Comprehend).
   * Users can perform specialised SQL queries on the database and RDS will in-turn query AWS machine-learning services for the result.
 
-## ElastiCache
+# ElastiCache
 * Managed in-memory caching databases
   * Redis
   * Elasticached
 * High performance, low latency
+* As with other managed services, AWS handles OS patching, maintenance, backups, etc.
+* Typical use case is to cache common database queries to a database so that load is taken off of the database instance.
+* As with RDS, the "power" of the cache is determined by the instance type the cache runs on.
+* IAM is not supported to authentication actions within the cache instances.
+  * IAM does control permissions for AWS-level ElastiCache operations (create/delete clusters etc)
+
+## Redis vs Memcached
+
+| Technology | Instances Used For | Persistent | Supports Backup/Restore  | Use Cases                 |
+|------------|--------------------|------------|--------------------------|---------------------------|
+| Redis      | Replication        | Yes        | Yes                      | Database, cache           |
+| Memcached  | Sharding           | No         | No                       | Performance-focused cache |
+
+# Route53
+* Route53 is a managed DNS service.
+  * DNS is a set of records detailing how to translate a given domain name into an IP address.
+* AWS primarily handles 4 record types:
+  * `A`: Hostname to IPv4 address
+  * `AAAA`: Hostname to IPv6 address
+  * `CNAME`: Hostname to hostname
+    * The resulting hostname will then need to be evaluated using further DNS records, eventually resolving as an IP address.
+    * Cannot route a root domain - it can only route subdomain requests.
+  * `ALIAS`: Hostname to hostname (AWS resource)
+    * Used in Route53 to route to AWS resources (e.g. an EC2 instance or an ELB)
+    * Works for either root domains or subdomains.
+    * Free of charge in AWS.
+    * Route53 supports native healthchecks on these records.
+* Route53 can route both public domains and domains that are "made-up" and only accessible within a VPC (e.g. *mydomain.mycompany.internal*)
+* Just like IAM, Route53 is a global service so is not tied to a specific region.
+  * It wouldn't make sense to tie it to a region as this would mean domains were not unique.
+* A DNS response can have a TTL included with it so that the client is asked to not request the record again until the TTL has expired and instead use its own local DNS cache.
+  * High TTLs (multiple hours) mean less load on the DNS server but greater chance of outdated records.
+  * Low TTLs (minutes) mean greater load on the DNS server but less chance of outdated records.
+* As with ELBs, we can configure health checks so that Route53 will not route traffic to destinations if it fails the health check.
+  * By default, requires 3 consecutive successes/failures when polling an instance to change health state.
+  * Can also tie a healthcheck to CloudWatch so that a certain alarm firing would make indicate an unhealthy destination.
+  * An alarm can be automatically fired if a healthcheck fires.
+* Route53 can also act as a domain name registrar to purchase domain names from ICANN.
+* Route53 can act as a DNS provider for domains that were not purchased through Route53. To do this:
+  * Create a new **Hosted Zone** in Route53
+    * A Hosted Zone is a container for holding DNS information about a single root domain in Route53.
+  * Update the nameserver for the domain on the registrar's website to point to Route53's nameservers.
+    * It is the same process as when transferring DNS responsibilities to Cloudflare.
+
+## Routing Policies
+* Route53 can be used to load balance requests to multiple servers - how it does this is defined in a *routing policy* on the DNS record.
+  * Simple
+    * The most basic policy acheives "client-side load balancing" and is accomplished by setting a single record with multiple prospective IP addresses.
+    * When a DNS request is made, all of these IP addresses are returned to the client.
+    * The client chooses one of the IP addresses at random to send its request to.
+  * Weighted
+    * Sends a percentage of traffic to specific IP addresses.
+    * Useful for A/B testing of new features/versions.
+    * Multiple records for the same input are created, just with different destinations and weights.
+  * Latency
+    * Sends traffic to the desination with the lowest latency.
+    * Latency is measured as the time taken for the user to reach an AWS region.
+      * This is usually the one that they are geographically closest to, but not necessarily.
+    * Multiple records with the same input are created, the AWS region that the destination is closest to is selected.
+  * Failover
+    * Always routes to the same destination unless the destination fails it healthcheck, in which case all traffic is routed to the secondary.
+    * Requires two records to be created, each with the same input hostname, but one marked as *primary* and one marked as *secondary*.
+  * Geolocation
+    * Route to an instance based on the user's physical location (either continent or country).
+      * This does not necessarily mean routing to the closest server, it is an unconstrained mapping from user location to destination.
+        * There is nothing preventing the creation of a policy which sends all users in Japan to a UK destination even if there is already an equivalent Japanese destination.
+    * Records are created for each location a user may be, and the desired destination is set on a case-by-case basis.
+    * A default record is created in case there is no record specified for a given user's location.
+  * Geoproximity
+    * Route users based on their physical proxity to a resource.
+    * If it is an AWS resource, AWS already knows the physical location of it. If it is a non-AWS resource, the latitude/longitude of the desination is provided to the policy.
+    * In its most simple form, the user will be routed to the resource that they are physically closest to.
+    * Implementing a **bias** value to any one record means that its influence/attraction is altered.
+      * If a higher value, a user is "more strongly pulled" towards that instance - this may be enough to have the user's requests go to this destination rather than one that the user is actually physically closer to.
+    * It is often used when needing to easily shift additional traffic to a specific destination - yet still maintaining geographical awareness.
+  * Multi-Value
+    * Essentially the same as simple routing but each possible destination has an associated health check. Only destinations that have a healthy destination will be included in the payload returned to the user.
+    * Up to 8 healty destinations will be included in the response.
+    * The user, upon receiving the payload of healthy destinations, will choose one at random in the same way as it would for simple routing.
+
+# Elastic Beanstalk
+* A managed service which offers an ecosystem to deploy applications into where much of the infrastructure is managed for you.
+  * All the developer needs ot focus on is the development of code, not infrastructure.
+* Somewhat similar to Kubernetes.
+* Habndles the deployment of related AWS services such as ELB, ASGs, EC2, etc.
+* Although much of the configuration is auto-created, can still be manually adjusted according to developer needs.
+* Supports the creation of different environments (e.g. dev, stg, prod).
+* Beanstalk is free, but the infrastructure created by Beanstalk may cost.
+* Beanstalk supports many application technologies (e.g. Java, Python, Docker) natively.
+  * Alternative technologies can be run by creating a custom configuration.
