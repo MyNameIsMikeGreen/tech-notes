@@ -692,3 +692,57 @@ AWS Solutions Architect (Associate) Certification Notes
 * Beanstalk is free, but the infrastructure created by Beanstalk may cost.
 * Beanstalk supports many application technologies (e.g. Java, Python, Docker) natively.
   * Alternative technologies can be run by creating a custom configuration.
+
+# S3
+* Supports the storage of objects (files) into buckets (directories).
+* Buckets belong to a region.
+* Buckets must have a globally unique name.
+  * Even across regions and across users.
+  * e.g. If some user somewhere has a bucket called *test*, nobody else anywhere can also create a bucket called *test*.
+* Technically, S3 has no concept of intermediate directories from the bucket root, however it is very common to name objects using a relative path string (e.g. my_folder/my_file.txt) to act as if there were directories.
+  * The AWS console will usually parse these file names and present the files in a folder structure if this is done, however this is simply a presentation convinience.
+  * The name of an object is known as the **key**. If the key is formatted like a path, the key is then comprised of two parts: the prefix (the sub-directories) and the object name (the basic file name e.g. *my_file.txt*)
+* The object value (content) can be a maximum of 5TB in size.
+  * If greater than 5GB, the object must be split into parts and uploaded independentaly of other parts.
+
+## Versioning
+* Is enabled on a per-bucket basis
+* If an object with an identical key is uploaded, it will replace the existing object as the latest version and the version number of the object will be incremented (e.g. from *1* to *2*).
+* Can be toggled on or off at any time. This simply starts or suspends versioning.
+  * Existing version archives will not be removed if versioning is turned off.
+  * Objects uploaded before versioning was enabled will simply have a version number of *null*.
+* When deleting a versioned object, the user is not actually deleting it from the bucket, instead they are adding a **delete marker** to it.
+  * A delete marker is similar to having a new version of the file with size of 0 bytes that AWS interprets to not show the file in many situations.
+* Permanently deleting a versioned object is acheived by deleting the specific version(s) rather than the object as a whole.
+  * Therefore, it is possible to restore a deleted versioned file by deleting the delete marker (as the delete marker is simply a special version of the object).
+
+## Encryption
+* Objects stored in S3 can be encrypted at rest (i.e. stored in an encrypted format).
+* Communication with S3 can be done over to HTTPS to also encrypt data in-transit.
+* Objects may be encrypted using 1 of 4 possible methods:
+  * SSE-S3
+    * "Server-side Encryption: S3"
+    * Encryption key is completely owned and managed by AWS, the user never sees or interacts with it.
+    * The user states their intention for the object to be encrypted using SSE-S3 by passing `"x-amz-server-side-encryption": "AES256"` as a header in the HTTP(S) request.
+  * SSE-KMS
+    * "Server-side Encryption: KMS"
+    * Encryption key is stored in KMS
+      * Therefore has increased level of user control and audit trail capabilities.
+    * The user states their intention for the object to be encrypted using SSE-S3 by passing `"x-amz-server-side-encryption": "aws:kms"` as a header in the HTTP(S) request.
+  * SSE-C
+    * "Server-side Encryption: Client"
+    * Encryption key is provided to AWS by the user.
+    * The provided key is not persisted in AWS. After AWS has encrypted/decrypted the file, the key is discarded.
+    * When uploading/downloading objects, the encryption key must be provided in the HTTPS header so that AWS knows how to encrypt/decrypt the object.
+    * As the key is sensitive, when using SSE-C, HTTPS must be used, HTTP is disabled.
+  * Client-Side Encryption
+    * The user handles the encryption and decryption of the file themselves locally.
+    * AWS has no role to play in the at-rest encryption and therefore never sees a key.
+      * As far as AWS is concerned, it is simply storing a stream of bytes without any further context.
+    * The AWS SDKs provide a number of encryption utilities to handle client-side encryption.
+      * There are S3 SDKs for various languages that support client-side encryption.
+      * There exists a **AWS Encryption SDK** which support encrypting various data for storage in AWS that is not just S3-specific too.
+* A default policy for encryption of all new objects in a bucket can be specified.
+  * This can either be *SSE-S3* or *SSE-KMS*.
+  * Uploading a specific file and specifying some other encryption method will override the default and us ethat encryption for that object specifically.
+* Encryption is applied on a per-object basis. Therefore within a bucket there may exist files that have different (or even no) types of encryption. Even versions of the same object may have different encryption methods applied.
