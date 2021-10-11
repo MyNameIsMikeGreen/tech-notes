@@ -89,6 +89,7 @@ AWS Solutions Architect (Associate) Certification Notes
   * Principal - An account/user/role to apply the policy to
   * Resource - The soecific resource this policy applies to (e.g. a specific S3 bucket)
   * Condition - Additional custom condition to evaluate to decide whether the policy should be applied.
+* There exists a tool called the "IAM Policy Simulator" which tests whetehr or not, for a given user, role, or policy, a specific action is permitted.
 
 ## Policy Evaluation
 * A user may have many policies applied to them (either directly or via their group(s)). This means that they have the potential to conflict. For example, if a policy attached to the user grants permission to read from S3 but a policy from their group explicitly denies reading from S3.
@@ -153,6 +154,8 @@ AWS Solutions Architect (Associate) Certification Notes
   * This may be used to, for example, install packages via the image's package manager, and then boot up a web server.
 * If an AMI has SSH bundled and enabled by default, it is possible to connect to it via SSH using the private key provided at creation. It is also possible to connect to some AMIs (such as "Amazon Linux 2") using "EC2 Instance Connect" which is a web-browser-based SSH client for some AWS AMI instances.
   * Despite being within the AWS management console, to use EC2 Instance Connect, the instance must have the SSH port (22) allowed as an inbound rule on its security group.
+* Meta-data about an instance can be found on the instance itself by running `curl http://169.254.169.254/latest/metadata/`.
+  * This includes information such as the current role the instance has assumed, it's IP addresses, and so on.
 
 ## Security Groups
 * A security group is similar to a firewall; it defines the network rules that allow traffic to flow into or out of EC2 instances.
@@ -704,6 +707,9 @@ AWS Solutions Architect (Associate) Certification Notes
   * The name of an object is known as the **key**. If the key is formatted like a path, the key is then comprised of two parts: the prefix (the sub-directories) and the object name (the basic file name e.g. *my_file.txt*)
 * The object value (content) can be a maximum of 5TB in size.
   * If greater than 5GB, the object must be split into parts and uploaded independentaly of other parts.
+* As of December 2020, operations have *strong consistency*.
+  * This means that new uploads/deletions in a bucket take immediate effect for any subsequent read operations.
+  * Prior to this, S3 was *eventually consistent* so changes to objects wouldn't necessarily take immediate effect.
 
 ## Versioning
 * Is enabled on a per-bucket basis
@@ -742,7 +748,291 @@ AWS Solutions Architect (Associate) Certification Notes
     * The AWS SDKs provide a number of encryption utilities to handle client-side encryption.
       * There are S3 SDKs for various languages that support client-side encryption.
       * There exists a **AWS Encryption SDK** which support encrypting various data for storage in AWS that is not just S3-specific too.
-* A default policy for encryption of all new objects in a bucket can be specified.
+* A default encryption of all new objects in a bucket can be specified.
   * This can either be *SSE-S3* or *SSE-KMS*.
-  * Uploading a specific file and specifying some other encryption method will override the default and us ethat encryption for that object specifically.
+  * Uploading a specific file and specifying some other encryption method will override the default and use that encryption for that object specifically.
+* Alternatively, a bucket policy which blocks access to `s3:PutObject` unless the correct encryption header is found also works to prevent undesirable encryption types from being used in a bucket.
 * Encryption is applied on a per-object basis. Therefore within a bucket there may exist files that have different (or even no) types of encryption. Even versions of the same object may have different encryption methods applied.
+
+## Access Control
+* To perform actions on something within S3, there needs to be a policy that explicity allows it, and no policy that explicity denies it.
+* S3 policies can either be:
+  * User-based (IAM)
+    * Defines which actions a specific user can perform in S3
+  * Resource-based
+    * Defines which actions can be performed on a specific resource in S3
+    * Resource may be a bucket or an object
+* Historically, S3 buckets were publically accessible. This led to data leaks of company data and AWS responded by adding the option to optionally block public access to buckets.
+  * Unless the bucket *needs* to be public, it is best practice to disable public access.
+  * Can be applied at the account level so that buckets in S3, under the sae account, have the same preference unless otherwise set.
+* An audit trail of access to S3 buckets can be enabled.
+  * These logs are stores in another S3 bucket.
+  * Can also log the API calls to S3 in AWS CloudTrail.
+  * The logging bucket must not be the same bucket that is being monitored, otherwise an infinite loop is created.
+  * AWS automatically updates the access control list (ACL) to grant permission for a bucket to write its logs into the specified logging bucket.
+* Pre-signed URLs enable a bucket to be accessible via a URL for a limited time
+  * These can be used to oermit download of specific files or to premit upload to specific locations temporarily
+  * This URL has the same GET or PUT permissions as the user that generated the URL
+  * It expires after a set amount of time - by default, 1 hour
+* *MFA-Delete* is a feature that can be enabled in the CLI (Not in the wen console) by the root account (No other account, including administrator accounts) to force the requirement that a user must input an MFA code in order to:
+  * Delete an object
+  * Suspend versioning
+* Policies may be conditional
+  * We can specify whether to apply the policy whether or not the request being examined has a header with a specific value.
+    * e.g. only apply this policy if the request to put an object includes the `x-amz-server-side-encryption` HTTP header.
+
+## Static Website Hosting
+* S3 has an additional feature where it can host the files held in a bucket as a website.
+* When the static hosting option is enabled, S3 will serve the objects in the bucket via a web server.
+* To do this:
+  * Enable the "Static website hosting" on the bucket.
+  * Enable the public access setting on the bucket.
+  * Add a bucket policy allowing `GetObject` permissions to anybody.
+  * Set the index object.
+    * i.e. the object that is served when users navigate to the root URL of the site.
+  * Set the error object.
+    * i.e. the object that is served when users navigate to a bad URL (404).
+* The website will be accessible at `http://[BUCKET_NAME].s3-website.[REGION].amazonaws.com`.
+* A custom domain can be applied to the website by configuring DNS settings in Route53.
+
+## CORS
+* Cross-Origin Resource Sharing
+* A security feature of web browsers which disallows the target page from sending requests to other domains unless the other domain explictly allows it by returning a CORS header in its response.
+* If resources are from the same domain, CORS headers are not necessary.
+* For example:
+  * We are accessing `http://example.com/index.html`.
+  * `http://example.com/index.html` contains an `<img>` tag to get an image from `http://someOtherExample.com/image.jpg`.
+  * By default, the web browser will disllow this as it doesn't like an origin requesting resources from another origin.
+  * For the web browser to be happy to fetch resources from on `http://someOtherExample.com/image.jpg` behalf of `http://example.com/index.html`, `http://someOtherExample.com/image.jpg` must return the following header: `Access-Control-Allow-Origin: http://example.com`.
+  * Alternatively, the other origin may allow any origin by returning `Access-Control-Allow-Origin: *` in its responses.
+* Typically, a web browser will send a HTTP `OPTIONS` request to the other server first so that it can see which headers would be returned without actually having to trigger a full request first.
+* As S3 buckets are frequently used to store assets for websites, we need to make sure the bucket is including the `Access-Control-Allow-Origin` header in its responses where necessary.
+* To configure the CORS settings for a bucket, we provide a JSON configuration containing the allowed HTTP methods, the allowed origins, and several other settings.
+
+## Replication
+* S3 can automatically synchronise a bucket's contents to some other bucket
+* The destination bucket can be anywhere:
+  * Same region
+  * Different regions
+  * Same account
+  * Different account
+* The copying process is asynchronous, but fast
+* Versions must be enabled in both the course and destination buckets
+* Objects are copied from the moment replication is enabled - it does not retroactively copy objects older than this point.
+* Replication cannot be chained, it will copy across buckets at most once.
+
+## Storage Classes
+
+* S3 allows the user to choose the way an individual object is stored when uploading.
+* In general, choosing classes with slower retrieval times will be cheaper as long as the data isn't retrieved frequently
+
+### Attributes
+
+![S3 Storage Class Comparison](../media/S3StorageClasses.png)
+
+* Standard - General Purpose
+  * High durability
+  * High availability
+* Standard - Infrequent Access (IA)
+  * Data that is less frequently accessed, but objects can still be fetched without delay
+  * If the data is genuinely accessed infrequently, will be cheaper than "Standard - General Purpose"
+  * Equally durable
+  * Slightly lower availability
+  * Data is stored across multiple AZs
+* Intelligent Tiering
+  * For a monthly fee, AWS will move the bucket into one of 2 standard tiers to minimise costs based on historical access patterns
+* One Zone - Infrequent Access (AI)
+  * As above, but the data is stored in only 1 AZ and availability is reduced
+* Glacier
+  * Archiving and backup class
+  * Commonly used for data retention compliance
+  * Intended to be accessed incredibly infrequently (Decades)
+  * Very cheap to store, but increased retrieval cost
+  * Instead of "*buckets*", the logical storage containers are called "*vaults*"
+  * Instead of "*objects*", the data files are called "*archives*"
+  * To restore archives so that they can be downloaded, 3 options are available; the faster the method, the more it costs:
+    * Expedited (1 to 5 minutes)
+    * Standard (3 to 5 hours)
+    * Bulk (5 to 12 hours - multiple archives)
+  * Once restored, the archives can be downloaded
+  * Archives have a minimum storage term of 90 days
+* Glacier Deep Archive
+  * As above but for even longer and even less frequently accessed archives
+  * Retreival takes longer:
+    * Standard (12 hours)
+    * Bulk (48 hours)
+  * Minimum storage term of 180 days
+  * Can set a *vault lock* to ensure that an archive becomes read-only after upload
+    * Implements the *WORM model* (Write-once, read-many)
+    * Different lock modes alter the permissions different usdrs have to edit the object (including whether they can remove the lock or delete the object). In *compliance mode* not even the root user can change the file or lock policy once uploaded.
+
+### Lifecycles
+* The storage class of an object/archive may be updated over time if desired
+  * However, once in some storage classes, you will be unable to transition to some other storage classes. You can only transition an object/archive to a slower storage class.
+  * ![S3 Storage Class Transition Graph](../media/S3StorageClassTransitionGraph.png)
+* *Lifecycle rules* define what to do with an object at certain points in time so that these actions do not need to be done manually
+  * *Transition actions*  define when objects are to be transitioned to another storage class automatically
+  * *Expiration actions* define when to automatically delete objects or versions
+  * Rules can be conidtional based on things such as tags or names of files
+
+## Performance
+* S3 supports high request rates
+  * At least 3.5k mutation calls (PUT/POST/DELETE, etc...) per prefix (sub-directory/folder)
+  * At least 5.5k query calls (GET/HEAD) per prefix (sub-directory/folder)
+* If using the AWS-KMS encryption scheme, KMS may become a bottleneck in S3 request rates.
+  * Encrypting on upload calls KMS's `GenerateDataKey` API and decrypting on download calls its `Decrypt` API.
+  * There is an allowance on the number of KMS requests that an account can perform per second which typically is less than the S3 rate.
+    * The default varies by region
+    * AN individual account can request a higher KMS quota
+* *Multi-part upload*, which is mandatory for files greater than 5GB, helps upload files as it parallelises the upload of each of the parts.
+  * It is recommended for files greater than 100MB
+* The download counterpart to *multi-part upload* is *byte-range fetches*
+  * This involves downloading a specific byte ranges of a specific object as a single unit.
+  * Other byte ranges will be downloaded in parallel.
+  * Alternatively, if you know the data you care about is only in a specific part of the object (e.g. the first 50 bytes), you can choose to only download this part of the file and avoid unnecessary download of the entire file.
+* *S3 Transfer Acceleration* involves the utilisation of a local edge location for uploading or downloading files to/from a bucket in a non-local region.
+  * This is beneficial as the majority of the network journey will be done via AWS's private high-speed network rather than the public internet.
+* *S3 Select* and *Glacier Select* is a method for performing server-side querying on CSV, JSON, and Apache Parquet objects/archive stored in S3/Glacier and only returning the subset of data within that objects/archive.
+  * The query is constructed as a simple SQL-style syntax
+  * This is adventageous to a user as:
+    * The entire objects/archive does not need to be downloaded
+    * No/less client-side searching/manipulation needs to be performed
+    * Time and money is saved
+
+## Event Notifications
+* If some operation happens on an S3 bucket (an "event"), S3 can trigger a notification to be sent to:
+  * SNS
+  * SQS
+  * Lambda
+* Notifications are typically sent within 1 second but can take longer
+* If simultaneous write operations happen on the same object, there is risk that only one notification will be sent. To combat this, version must be enabled on the object.
+* We can set event notifications to only happen on a subset of the files in S3 by applying filters such as file name matching (e.g. "*.jpg")
+* Policies may need to be set up to allow S3 to send notifications to the intended target
+
+## Athena
+* Serverless service for querying data held in S3 using an SQL-like syntax
+* Similar in concept to the capabilities of *S3 Select*, but a more broad use-case that is not limited to selecting subsets of data
+* Reduces the need to load data into a DBMS
+* Supports various object types including:
+  * CSV
+  * JSON
+  * ORC
+  * Avro
+  * Apache Parquet
+* Pay-per-query
+* The result of queries is sent to a bucket in S3 (Similar to how S3 logs are sent to another bucket in S3)
+
+# CloudFront
+* Content delivery network (CDN).
+* In CloudFront terms, "origin" refers to the service/platform serving the content that CloudFront is delivering to the user (e.g. an S3 bucket).
+* Caches content from sources in AWS and serves them from edge-locations close to the user.
+  * On the first request for a resource, the edge location will request the data from the origin. It will then save this in it's local cache.
+  * On subsequent identical requests, instead of going to the origin, it will serve the content from its local cache.
+  * Cache items have a TTL.
+* Low latency read operations.
+* More edge-location than there are regions so is more fine-grained to an individual user's location and can likely provide better latency than if the content is simply replicated across regions.
+* Supports the following origins:
+  * S3 Buckets
+    * CloudFront can also be used as an ingress to the bucket to upload files
+  * Anything that uses HTTP
+    * EC2 Insances
+    * ALBs
+    * Some other HTTP service
+* Can geo-restrict content based on location
+  * Uses a whitelist/blacklist mechanism to allow/prevent IPs registered in specific country access to the content
+  * Effectively, this means that the edge-location for that specific region is granted/denied access to the content
+* The use-case for CloudFront vs S3 Cross Region Replication is different
+  * CloudFront may potentially be outdated for as long as the TTL is set for whereas S3 replication updating is near-instant
+  * S3 replication requires regions to be specifically configured whereas CloudFront works globally
+  * S3 replication is read-only whereas CloudFront can be configured to act as an S3 ingress
+* Content can be accessed by a user using pre-signed URLs and pre-signed cookies
+  * These are generated by an application that has assumed an IAM role with the permissions to create presigned URLs/cookies
+  * The URL/cookie is provided to the client which they can then use to grab the content from CloudFront themselves
+  * A URL is used to access a single resource whereas a cookie can be configured to access a set of resources
+* The service is charged per GB and the rate changes based on the edge-location and on how much has been transferred, in total, that month
+  * To help control costs, there are several price classes that can be chosen to exclude the most expensive edge-locations from serving content
+    * Price Class All: All edge-locations are used; best performance; highest cost.
+    * Price Class 200: The most expensive edge-locations are excluded; Reduced performance in those expensive areas; lower overall cost.
+    * Price Class 100: The same as Price Class 200, but excluding more edge-locations.
+* Routing rules on the CloudFront URL can be configured to route traffic to different origins
+  * e.g. The path `[CLOUDFRONT_URL]/api/*` may route to an ALB whereas the path `[CLOUDFRONT_URL]/media/*` may route to an S3 bucket.
+* *Origin group* increase availability of content by including a primary and secondary origin that can fulfil a request.
+  * If the primary origin goes down, the secondary will be used as a failover.
+
+## Security
+* For S3, unless the bucket is set tp be publically accessible, we must authorise CloudFront to access the bucket.
+  * We generate an **Origin Access Identity (OAI)** that identifies CloudFront.
+  * We can then add CloudFront's OAI to the buckets policy to allow it access securely.
+* CloudFront can only connect to public IP addresses for EC2/ALB instances, it is able to utilise private IP addresses. Therefore, to secure connections to these resources, we must add the list of CloudFront IP addresses to the IP address whitelist in the security groups for the EC2/ALB.
+  * AWS publishes a list of CloudFront edge-location IP addresses.
+* *Field-level encryption* is an additional security measure that CloudFront offers to encrypt specific fields in a HTTP request at the edge-location in a way that only the origin will be able to decrypt.
+  * Can be used to supplement the security offered bu HTTPS for fields in requests that are particualrly sensitive (e.g. card numbers).
+  * The edge location encrypts the selected fields using the public key
+  * The request for forwarded through the AWS network until it reaches the origin
+  * Only the origin has the private key to decrypt the fields
+  * Required application-level changes to decrypt the fields using the private key if the origin is a custom application
+
+# Global Accelerator
+* Utilises AWS's global network of edge locations to act as a nearby entry point to AWS services so that the user does not need to route over the public internet to access them.
+  * For example, an ALB may be in the US, but a user may be in Australia. Under normal circumstances, the user will have the ALB's IP address and requests will be routed over the public internet, via many server hops, until it eventually reaches the ALB. However, if the user goes to their local AWS edge-location, we can then fast-track the request via AWS's private network, which requires fewer server hops, to reach the ALB instead.
+  * From the desination service's perspective, only the anycast IP(s) need to be whitelisted regardless of how many edge-locations there are as they are all given the same IP address.
+* This is acheived by utilising anycast IPs.
+  * A service is associated with an IP address (or multiple IP addresses) by Global Accelerator. All edge-locations will them simultaneously announce that they handle requests for this IP address. By the very nature of the IP protocol, the location that is closest will be the one that ultimately gets the request.
+* Even though it is using the AWS edge locations, unlike CloudFront, Global Accelerator is not caching, it purely proxying.
+* Supports healchecking and failover if the desination is unavailable.
+* Is charged as an ongoing fee for every hour that it is enabled on the account as well as a charge per GB which varies depending on region served.
+
+# Snow Family
+* Facilitates large data transfers or edge-computing using AWS-supplied hardware.
+* AWS will send their hardware to the customer, the customer will then load or record their data onto the hardware, the customer will then send the hardware back to AWS to be inserted into S3.
+  * Alternatively, the data transfer may be the other way around, with the customer requesting data from AWS. In this case, the data from an S3 bucket will be pre-loaded onto the device prior to AWS sending it out.
+* One of the primary advantages of the Snow family is the elimination of network activity.
+  * For extremely large data transfers (Petabtyes, exabytes) even with a high bandwidth network, the transfer can take weeks.
+  * By physically transfering the data to AWS on hardware, the effective "bandwidth" limitation is the speed of delivering the device.
+* The fees for transferring data into AWS are waived when using the Snow family, however there exist fees for transferring out (which are similar to the costs of pulling the data over a network).
+* Can be loaned long-term (1 or 3 years) for a discount.
+* The devices are managed from another computer either via:
+  * CLI
+  * OpsHub - a GUI application
+
+## Snowcone
+* The smallest device in the family: tissue-box-sized.
+* Designed for harsh environments. Device is rugged; can cope with a range of temperatures, and is waterproof.
+* Specifications:
+  * 2 vCPUs
+  * 4 GB of memory
+  * 8 TB storage (HDD variant) or 14 TB (SSD variant)
+* When ordering, an AMI is automatically loaded onto it to be used by the customer on-location.
+  * This means that edge-computing can be performed to capture/process/store data on-site.
+    * This is particularly aimed at environments where computing is otherwide not accessible (ships, mines, etc)
+* As with other devices in the Snow family, can be sent back to AWS for them to upload to S3 on the customer's behalf and elminate networking transfer costs. However, this device is unique in supporting AWS DataSync which simplifies uploading the data it holds to S3 over a network.
+  * The use-case for this is usually when the data-collection location does not have network access, but the customer will be returning to a location with network access shortly and can upload the data from there.
+* The customer must provide their own cables (power, connectivity) to use the device.
+  * It can also run off of battery power using compatible battery packs.
+* Fixed fee for each period of lending. This includes a number of days rental, however if the customer keeps the device beyond these included days, each day will incur and additional charge.
+
+## Snowball
+* Briefcase-sized device.
+* Better suited for transferring larger quantities of data into or out of AWS.
+* Fixed fee for each period of lending. This includes a number of days rental, however if the customer keeps the device beyond these included days, each day will incur and additional charge.
+* Has 2 variants:
+  * Compute-optimised
+    * 42 TB HDD storage
+    * 52 vCPUs
+    * 208 GB RAM
+    * (Optional) GPU
+  * Storage-optimised
+    * 80 TB HDD storage
+    * 40 vCPUs
+    * 80 GB RAM
+* Has a unique feature among the Snow devices: clustering
+  * Can order multiple Snowball devices as part of the same job to be connected together.
+  * A cluster of Snowballs will be used as a single logical device where the compute/storage capabilities will be combined.
+  * Clustering supports 5 to 10 Snowballs.
+* As with Snowcone, the Snowball devices are pre-loaded with an AMI so that the device can be used for edge-computing.
+
+## Snowmobile
+* A lorry carrying a shipping-container.
+* For extremely large data transfers.
+* Capacity up to 100 PB per vehicle.
+* Unlike other members of the Snow family, does not offer any compute capabilities, it is simply a medium for data storage/transfer.
