@@ -334,6 +334,42 @@ AWS Solutions Architect (Associate) Certification Notes
   * If set to be infrequently accessed, the storage cost is decreased, but the retrieval cost is increased.
   * A policy can be set to move files to different tiers automatically after a specified period of time.
 
+### FSx
+* Similar to EFS in the sense that it is a virtual file system which compute instances connect to in order to store data.
+* Primary difference is that we are choosing what server technology that is powering the file system is
+  * The file systems on offer are more specialised than typical servers
+  * As with EFS, are aimed at high performance
+* Can be deployed in one of two modes:
+  * Scratch
+    * Temporary
+    * High burst throughput rates
+    * No replication of data - so greater chance of data loss caused by server failure
+  * Persistent
+    * Long-term
+    * Data replicated within same AZ
+
+#### FSx for Windows
+* The file system server is an instance of Windows Server.
+* Exposes the file system using the SMB protocol.
+* The drive is formatted as NTFS.
+* Up to 2 GB/s throughput, millions of IOPS, and 100s of PB capacity.
+* Backed up to S3 daily.
+* Supports Active Directory (AD).
+  * Can either be an AWS-managed AD service, or an non-AWS AD server.
+* Accessible from on-premise infrastructure.
+
+#### FSx for Lustre
+* Lustre is a parallel distributed file system cluster used for incredibly high volume/throughput workloads.
+* 100s of GB/s throughput, millions of IOPS, sub-ms latency, 100s of PB capacity.
+* Can read from S3.
+* Can write results straight to S3.
+* Accessible from on-premise infrastructure.
+
+### AWS Transfer Family
+* A middleman service that exposes S3 and EFS via FTP/SFTP/FTPS.
+* Supports IAM.
+* Can be used with Route53 to provide a nice URL to reference the FTP server.
+
 # Scaling and Availability
 * Scalability can be:
   * Vertical - Increasing size of instance (giving it more power)
@@ -994,6 +1030,7 @@ AWS Solutions Architect (Associate) Certification Notes
 * The devices are managed from another computer either via:
   * CLI
   * OpsHub - a GUI application
+* Data cannot be uploaded from Snow devices directly into Glacier. To get the data into Glacier, the data must be uploaded to S3 first and then an S3 lifecycle policy can migrate it to Glacier.
 
 ## Snowcone
 * The smallest device in the family: tissue-box-sized.
@@ -1010,6 +1047,7 @@ AWS Solutions Architect (Associate) Certification Notes
 * The customer must provide their own cables (power, connectivity) to use the device.
   * It can also run off of battery power using compatible battery packs.
 * Fixed fee for each period of lending. This includes a number of days rental, however if the customer keeps the device beyond these included days, each day will incur and additional charge.
+* Suggested as the best option when transferring up to 24 TB (3 Snowcones).
 
 ## Snowball
 * Briefcase-sized device.
@@ -1030,9 +1068,126 @@ AWS Solutions Architect (Associate) Certification Notes
   * A cluster of Snowballs will be used as a single logical device where the compute/storage capabilities will be combined.
   * Clustering supports 5 to 10 Snowballs.
 * As with Snowcone, the Snowball devices are pre-loaded with an AMI so that the device can be used for edge-computing.
+* Suggested as the best option when transferring between 24 TB and 10 PB.
 
 ## Snowmobile
 * A lorry carrying a shipping-container.
 * For extremely large data transfers.
 * Capacity up to 100 PB per vehicle.
 * Unlike other members of the Snow family, does not offer any compute capabilities, it is simply a medium for data storage/transfer.
+* Is promoted as a high-security option with various security controls depending on the country including CCTV, surveillance, (armed) guards, GPS, etc.
+* Suggested as the best option when transferring greater than 10 PB of data.
+
+# AWS Storage Gateway
+* Facilitates the **Hybrid Cloud** paradigm by making AWS storage more accessible on-premise.
+  * Part of the infrastructure is in the cloud.
+  * Part of the infrastructure is local/on-premise.
+  * May be preferred in order to meet regulartory/legal obligations, increase security, or improve networking (transfer speed/quantity).
+* Exposes AWS storage services to a local network without the need for SDKs or AWS-specific application integrations.
+* Works by having a gateway application running locally on the customer's network to act as a bridge between the customer's applications/servers/clients and AWS.
+  * It handles all communication with AWS and exposes it generically so that the rest of the system does not need to know/care about AWS at all.
+  * No alterations need to be made to existing applications as no AWS-specific integrations are necessary. They simply utilise generic protocols to talk to the gateway application.
+* If the customer has no spare server capacity to run one of the Storage Gateway services, they can order a *Storage Gateway Hardware Appliance* from Amazon.
+  * These are physical servers with the necessary CPU/Memory/resources to run the storage gateway applications.
+
+## File Gateway
+
+![File Gateway](../media/FileGateway.png)
+
+* Exposes S3 buckets as a NFS/SMB networking file share.
+* Also acts as a cache of recently objects so that it is not necessary to query AWS for them each time.
+* Has optional Active Directory (AD) integration for user authentication.
+* Supports a subset of S3 bucket types:
+  * S3 Standard
+  * S3 Standard IA
+  * S3 One-Zone IA
+  * S3 Glacier
+
+## Volume Gateway
+
+![Volume Gateway](../media/VolumeGateway.png)
+
+* Exposes S3 as virtual disks using the iSCSI protocol.
+  * This means it is much more similar to having a remote drive that is being written to.
+* Data is stored in S3 with EBS snapshots of the data which can be used to recover on-premise volumes.
+* Can be run in two modes:
+  * Cached Volumes
+    * Like with File Gateway, caches the most recently used files so that they can be served from the gateway locally without going to AWS for it.
+  * Stored Volumes
+    * The gateway stores the entire volume locally, but has periodic backups to AWS.
+
+## Tape Gateway
+
+![Tape Gateway](../media/TapeGateway.png)
+
+* As with Volume Gateway, exposes S3 iSCSI protocol.
+* The primary difference between this and other offerings is that it is intended to be used with popular tape backup applications.
+  * Most of the leading tape backup provioders have added Tape Gateway integrations into their products.
+* Will store backups as virtual tapes in S3, and later in S3 Glacier.
+
+# Messaging/Queues
+* Using messaging/event-driven systems as middleware between two services introduces opportunity to utilise asynchronous communication.
+* Instead of a producer directly talking to a consumer, it communicated via a separate service. The producer/consumer can add/read messages to/from these systems as they please.
+  * This means that sudden-spikes of load are less likely to overwhelm the consumer as the messaging system acts as a buffer.
+* These services facilitate decoupling of applications.
+
+## SQS (Simple Queue Service)
+* A fully-managed queue service allowing producers to place messages to be consumed by a consumer.
+* Messages can live in the queue for a maximum of 14 days (with 4 days being the default).
+* Maximum message size of 256 KB.
+* There is unlimited throughput for writing and reading messages.
+* Both reading and recieving messages is low latency (<10 ms).
+* Exposes CloudWatch metrics that can be used to trigger scale-out/in events within ASGs to handle the current queue size.
+* Supports at-rest (KMS) and in-flight (HTTPS) encryption.
+* IAM policies regulate access to SQS API operations.
+* SQS Access Policies work similarly to S3 policies to place permissions on queues.
+  * They are applied on individual queues to define who can perform which actions on it.
+  * Can facilitate cross-account and cross-service access.
+* A consumer application will poll the service for messages, in the response from SQS, it will receive a subset of the total messages (assuming the queue size is large). This offers the opportunity for the other subsets to be received by other consumers.
+* When a message has been recieved by a consumer, the message becomes invisible to other consumers for a time specified by the queue's *Message Visibility Timeout*.
+  * A consumer must send a delete request once it has successfully processed the message to prevent the message staying on the queue and being accidentally re-read by another consumer after the timeout has been exceeded.
+  * Alternatively, if the consumer has fetched a message but knows it needs more time than the remaining visibility timout will allow to fully process it, it can send a `ChangeMessageVisibility` API request to SQS to extend the remaining visibility time of that one specific message.
+  * By default, the visibility timeout is 30 seconds.
+  * Setting a message visbility high introduces the risk of a consumer crashing and the message it was in the middle of processing being unreachable by some similar consumer until the timeout has been exceeded.
+  * Setting the message visbility too low, such that it is less time than a consumer will take to process it, means that there is a risk of the same message being consumed by multiple consumers.
+    * For this reason, SQS standard is only advertised as *"at least once delivery"* and *"best effort ordering"*.
+* It is possible to set one SQS queue as the Dead Letter Queue (DLQ) for some other queue.
+  * If any single message has a recieve count higher than some configured threshold, SQS will forward the message to the configured DLQ.
+    * The counter indicates that a consumer has seen this message multiple times but never confirmed successful processing by deleting it, so it must be bad.
+* We can configure a delay between a message being recieved by a queue and it being visible to consumers.
+  * This can be configured as a default at queue level or in the parameters of individual messages.
+
+### Request-Response Queue Pattern
+
+![SQS Request-Response Pattern](../media/SqsRequestResponsePattern.png)
+
+* This pattern fully decouples applications making requests from the applications responding to requests for both the act of making the request and the act of feceiving the response.
+* All intra-application communication goes via a queue.
+* There exists a dedicated queue soley for requests
+  * The requestor will send to this queue
+  * The responder will read from this queue
+* The request will contain:
+  * A Correlation ID - So that the response can be uniquely paired with the reuqest that sit is associated with
+  * A "Reply To" header - The name of the queue that the requestor wants the responder to place its response in to
+* If it doesn't exist already, the responder will create the queue that was mentioned in the "Reply To" header and send the response to the request, as a message, onto it.
+* The requestor will poll the response queue that it specified for an answer to its request.
+
+### FIFO Queues
+* In standard SQS queues, SQS has no problem serving up messages to be processed even if those that it served up previously have not been deleted (or visibility timed-out).
+  * Therefore, there is no guarantee that later messages will not be processed while an older message is being processed, and then the older message re-appears in the queue for another consumer which subsequently processes it correctly.
+  * In a order-critical system, this older message being successfully processed at a later time than ones that came in to SQS after it would be undesirable.
+* A FIFO (First-in, first-out) queue guarantees that messages (of the same group) will be served up to consumers strictly in the order that they were sent in to SQS.
+  * Subsequent messages will not be visible to consumers until preceeding messages have been deleted.
+* To prevent duplicated messages being sent in to SQS, FIFO queues also support deduplication.
+  * Within a 5 minute window, any duplicate messages will be deleted
+  * Duplicated can be identified via either:
+    * Content (If the SHA-256 hash of the bodies are identical)
+    * Deduplication ID (A custom ID sent as a header to the message to uniquely identify it regardless of its content).
+      * This method has the higher precedence if both methods were activated.
+* Rather than operating on all messages on the queue, FIFO logic applies locally within a *Message Group*.
+  * For each message sent, a *Message Group ID* is sent as a header which groups together messages that should be processed in a FIFO manner.
+  * Only the earliest unprocessed message in a message group ID is visible to consumers. Therefore, no later messages can be prematurely processed.
+* FIFO queues have limitted throughput:
+  * 300 messages/second if sending messages individually
+  * 3000 messages/second if sending messages in batches
+* FIFO queues must be named with a `.fifo` suffix.
