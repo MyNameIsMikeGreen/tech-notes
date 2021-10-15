@@ -1191,3 +1191,124 @@ AWS Solutions Architect (Associate) Certification Notes
   * 300 messages/second if sending messages individually
   * 3000 messages/second if sending messages in batches
 * FIFO queues must be named with a `.fifo` suffix.
+
+## SNS (Simple Notification Service)
+* Service offering topics for publishing/subscribing to.
+* All subscribers of a topic receive a message sent onto the topic (unless filtered).
+  * This eliminates the need to send a message to each intended recipient bespokely/individually.
+* Messages are pushed by SNS to the subscriber.
+* For each topic, up to 10,000,000 subscribers can be attached
+* Each AWS account can create up to 100,000 topics.
+* There is native integration between SNS and various AWS services such that they can be producers or subscribers of topics directly
+  * SQS
+  * Lambda
+  * CloudWatch
+  * S3
+* SNS also natively supports sending messages to email addresses and via SMS.
+* SNS security is similar to SQS security
+  * IAM for API access
+  * SNS Access Policies
+    * Define who/what can access the topics
+* SNS is a live system i.e. messages are received by consumers only if they are currently subscribed to it
+  * It doesn't offer data persistence (the messages will not be sat somewhere ready to be read on-demand)
+  * If no subscribers are present, SNS will retry the message a few times, however, if nothing subscribed during this time, the message will be lost forever.
+* Standard topics, like standard SQS queues, do not guarantee ordering or exactly-once message delivery. However, there exist FIFO topics that do.
+  * The same throughput rates exist for SNS as for SQS for both of their respective standard or FIFO offerings.
+  * The name must end with `.fifo` for FIFO topics.
+* *Filter Policies* can be applied to a topic subscription to specify a subset of the messages on a topic that should be received by this subscriber.
+  * It operates on the value of headers in each message.
+
+## SNS to SQS Fan-Out Pattern
+* A common use-case of SNS and SQS is to have a producer publish a message to SNS, and have various SQS queues subscribe to it.
+* This combines the one-to-many benefit that SNS offers with the data persistence, filtering, and retry abilities of SQS.
+  * If we were only to use SNS, failed messages would not be retried as SNS does not particularly care about whether or not a consumer processed a message correctly.
+  * As SNS comes first in the flow, its filtering capabilities can be leveraged to filter messages going onto the SQS queues.
+* In situations where we are limited to at most 1 message being sent (e.g. S3 event rules which can only send a single message for any given action in a bucket prefix/folder), this allows us to send that single message to many places (e.g. queues, and lambda functions).
+* SNS FIFO topics must be paired with SQS FIFO queues to correctly maintain ordering.
+  * Nothing other than an SQS FIFO queue can subscribe to an SNS FIFO topic.
+
+## Kinesis
+* Kinesis is a set of services which offers streams to store, process, and analyse data.
+
+### Kinesis Data Streams
+* This is the core product that is often referred to when talking about Kinesis.
+* Data in Kinesis is stored against a time stamp and is inteded to be read in time-order by a variety of consumers.
+* It uses a publish-subscribe model.
+  * It supports many simultaneous publishers and many simultaneous subscribers.
+  * Messages are retained for between 1 and 365 days.
+* Once submitted to Kinesis, messages are immutable and cannot be deleted until they expire as defined by the stream's retention policy.
+* A *stream* is comprised of one or many *shards*.
+  * Each shard is an individual computational component of a stream.
+  * Each shard has its own capabilities of throughput, therefore more shards increases the throughput capability of the stream as a whole.
+  * Each shard provisioned incurs additional cost.
+* A message sent to Kinesis comprises two parts:
+  * The data blob - The actual content of the message
+  * A *partition key* - a string which is used to determine which shard will handle this message
+* To translate between a partition key and the shard that will handle it, the key is hashed. Each shard has a unique range of has values that it is responsible for.
+  * Therefore, if you wish for a group of messages to be processed by the same shard (to maintain the same relative ordering), we give them all the same partition key.
+* Once received by a shard, each message is provided with a *sequence number* for its order within that single shard.
+  * This can help the consumer of the messages with ordering and unique identification of the messages.
+* The maximum message size is 1 MB.
+* Each shard can handle up to 1 MB/second or 1000 messages/second into it.
+* As with other messaging technologies, both the producers and consumers of the messages can be a wide variety of AWS and non-AWS services.
+* Supports encryption in-transit (HTTPS) and encryption at rest (using KMS keys).
+
+#### Standard vs Enhanced Fan-Out Streams
+* There are two types of Kinesis stream:
+  * Standard
+    * Consumers pull messages
+    * Read throughout of 2 MB/shard (shared across all consumers)
+    * Cheapest option
+  * Enhanced Fan-Out
+    * Stream pushes messages to consumers
+    * Read throughout of 2 MB/shard per consumer
+    * More expensive
+
+### Kinesis Firehose
+* Firehose is a fully-managed service which reads records from Kinesis streams, optionally performs transformation, batches them up, then sends them to various destinations.
+  * It is effectively an adapter to transport data between streams and other locations.
+* It can send data to:
+  * AWS services
+    * S3
+    * Redshift
+    * ElasticSearch
+  * Approved partners
+    * Datadog
+    * NewRelic
+    * MongoDB
+  * Custom HTTP endpoints
+* It scales automatically.
+* Data conversion is natively supported between a range of formats.
+  * Custom transformations can be performed by configuring a Lambda function to Firehose.
+  * Transformation/conversion incurs transformation costs.
+* The customer is charged per GB ingested into Firehose
+  * There are additional charges if using optional features on top of the basic use-case
+* Batch size is configurable
+  * A batch will be defined by either a minimum quantity of data or a minimum amount of time.
+  * The data will be sent once the minimum data size is reached or the minimum amount of time has passed.
+    * Data size can be set to anything between 1 and 128 MB.
+    * Time interval can be set to between 60 and 900 seconds.
+* Because of batching, Firehose is not real-time, it is near-real-time.
+
+### Kinesis Data Analytics
+* Reads data from streams or from Firehose, performs SQL queries on the data, pushes the result out to another stream or Firehose.
+* Fully managed
+  * Scales up/down automatically as needed
+* Real-time
+* Charged by the amount of computation utilised (Measured in *Kinesis Processing Units* - KPUs).
+
+## Amazon MQ
+* A hosted ActiveMQ instance in AWS.
+* An alternative to hosting ActiveMQ on-premise.
+* Intended primarily to allow existing applications to continue working with only an endpoint change necessary.
+  * From the application's perspective, it has little knowledge of where ActiveMQ is running.
+  * The application will continue to communicate using standardised protocols such as Openwire and STOMP rather than needing specialised AWS SDKs/libraries.
+* More difficult to scale than SQS/SNS as it is an instance of an application running on a virtual machine.
+  * If more power is required, the instance needs to to swapped out for a more powerful one.
+* Has both queue and topic features in a single service.
+* Supports failover for high availability
+  * Data for Amazon MQ is stored in an EFS volume.
+    * As it is kept separate from the instances, it means instance failure does not cause data loss.
+  * 2 brokers are running at any one time in two different AZs.
+  * The EFS is attached to both instances simultaneously.
+  * If the active instance goes down, the standby instance will become the active one.
