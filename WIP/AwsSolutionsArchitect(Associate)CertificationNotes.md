@@ -636,6 +636,67 @@ AWS Solutions Architect (Associate) Certification Notes
 * Aurora has integration with AWS's machine learning services (e.g. SageMaker and Comprehend).
   * Users can perform specialised SQL queries on the database and RDS will in-turn query AWS machine-learning services for the result.
 
+# DynamoDB
+* Fully-managed NoSQL database service.
+* Propriatary database technology - based off of an existing Amazon project.
+* Disributed database
+  * High availability
+  * High potential for efficient scaling
+* Suitable for massive datasets
+  * A single table can hold 100s of TB of data, and handle millions of requests per second
+* Consistently low data retreival latency regardless of table size
+* Full IAM support for access management.
+* An account only accesses one database instance per region. Different data is divided up by different tables.
+* When creating a table, its primary key must be set (Comprised of a *partition key* field, and, optionally, a *sort key* field). Beyond this, DynamoDB does not care what other fields are present or not, it will persist whatever it is sent.
+  * Unlike most SQL databases, this means that the fields do not need to be defined before inserting.
+* DynamoDB stores JSON-like objects
+  * They are typically represented as JSON
+  * The data-type limitations of JSON are similar to the data types DynamoDB can store
+* The performance (reads/writes per second) is variable. There are two schemes to manage it:
+  * Provisioned
+    * The customer reserves a fixed performance quota (x reads/writes per second - measured in *Read Capacity Units*, *RCU*; and *Write Capacity Units*, *WCU*)
+    * They are charged for the performance that the database *could* give at any one time given it's currently provisioned performance.
+    * Read capacity and write capacity are individually configurable.
+    * Scaling can be enabled so that AWS can automatically apply a higher or lower performance given the demand to the table.
+      * A minimum and maximum performance is set
+      * A target utilisation (measured as a percentage) is set which AWS uses to determine what performance to apply (within the bounds)
+        * i.e. for the amount of traffic we are seeing right now, which performance settings could I select so that it is y% utilised?
+    * Intended for use-cases with predicatable demand
+    * Unless the instance is over-provisioned, is usually the cheaper option
+  * On-Demand
+    * The performance of the database will automatically meet the need of the volume of requests coming in
+    * AWS ensures the table will perform for whatever is sent to it
+    * The customer is only billed for the actual amount of usage of the table
+    * Intended for unpredictable demand
+    * Is often a much more expensive option
+* Suppots TTLs for individual objects
+* Typically, you can only query objects in a DynamoDB table by the primary key, not the additional fields
+  * However, additional indexes (either *Global Secondary Indexes*, *GSI*; or *Local Secondary Indexes*, *LSI*) can be created which add search functionality to arbritary fields.
+* Supports multi-table-transactions whereby we can garauntee an all-or-nothing approach when writing some related data to several tables at once.
+  * A failed transaction will rollback so that we are not left in a bad state.
+
+## DynamoDB Accelerator (DAX)
+* Seamless managed cache for DynamoDB
+* Requires no alterations to application code, the client is unaware of DAX
+* Microsecond latency
+* By default, each cache item lasts for 5 minutes
+* Caches:
+  * Objects/records
+  * Queries
+  * Scans
+
+## DynamoDB Streams
+* If enabled, sends event messages whenever a mutation (create, update, delete) operation is performed on a record in the table
+* Effectively creates a log of the table's activity
+* Can be sent into Kinesis, Lambda, etc
+* Data retained in stream for up to 24 hours
+
+## Global Tables
+* A global DynanoDB table is one which appears in multiple regions
+* A client can write to or read from the table in any region in which it is replicated and any updates will be propagated to all other replicas.
+* The synchronisation of the tables is powered by DynamoDB Streams and, as such, they must be enabled in order to configure global tables.
+* Although they are technically different physical tables in the backend, from a user's perspective, it is as if they are talking to a single table (just perhaps via different endpoints).
+
 # ElastiCache
 * Managed in-memory caching databases
   * Redis
@@ -1312,3 +1373,148 @@ AWS Solutions Architect (Associate) Certification Notes
   * 2 brokers are running at any one time in two different AZs.
   * The EFS is attached to both instances simultaneously.
   * If the active instance goes down, the standby instance will become the active one.
+
+# Containers
+* AWS has various services to support for Dockerised applications.
+* Docker images can be stored on AWS for both public and private access.
+* In AWS, there exist services dedicated to running Docker containers.
+
+## ECR (Elastic Container Registry)
+* AWS's equivalent to DockerHub.
+* Hosts Docker images.
+* Repositories can be public or private.
+* Images can be pushed/pulled to/from the service.
+* Is charged based on the amount of data stored per month and by the amount of data transfered out (once a certain threshold has been exceeded).
+* Backed by S3.
+* Supports IAM to control whether people/applications can push/pull images to/from ECR.
+* Includes several additional features including:
+  * Vulnerability scanning
+  * Lifecycles
+  * Tagging
+
+## ECS (Elastic Container Service)
+* A service for running Docker containers on AWS.
+* Infrastructure can either be provisioned manually (EC2) or be handles fully by AWS (Fargate) - This is known as the "*launch type*".
+* Supports attaching EFS volumes to containers in order to have shared persistent storage, even across AZs.
+* Instead of manually launching tasks, they can be triggered via *Amazon CloudEvents*.
+  * This service read events from various sources (e.g. CloudWatch) and can start up an ECS task in response.
+* Supports rolling updates
+  * If we want to run a new version of our application, we need to be able to deploy this withoud downtime, for this ECS has rolling update support.
+  * A *minimum healthy percent* and a *maximum healthy percent* is defined as part of an update. These define how many healthy containers (of any version) is allowed to be running at any one time.
+  * ECS will calculate how to kill/start containers whilst staying within the bounds set in the update definition.
+
+### EC2-Backed ECS
+* The customer sets up EC2 instances and ECS determines which is the best EC2 instance to run any new task/container on.
+  * ECS handles the starting and stopping operations
+  * ECS may have to deal with constraints for a desirable EC2 instance such as having a certain amount of memory.
+* ECS communicates with the EC2 instances via the instance's ECS agent.
+  * This is a process on each of the EC2 instances.
+  * This is pre-configured on AMIs advertised as ECS-ready.
+  * If using another AMI, manual configuration of an agent will be necessary.
+* Supports ASGs and ALBs to direct traffic to one of multiple identical tasks/containers running a given application.
+  * As containers typically start on a random port, something on the outside doesn't automatically know where the application is "living" on a machine
+    * ALBs have special support for ECS which allows them to dynamically find the port of a given ECS task on an EC2 instance.
+  * Can also have an ASG for the EC2 instances that the containers are running on.
+    * The ECS ASG handles the number of containers, the EC2 ASG handles the number of machines present to run these tasks.
+      * If there were ECS ASGs without an EC2 ASG, we risk running out of places to run the containers.
+
+### Fargate-Backed ECS
+* A *serverless/fully-managed* capability for running Docker containers on AWS.
+* Performs similar services as EC2-backed-ECS, but there is no need to configure any compute instances for the containers to run on.
+  * AWS handles the details of where the containers are physically running.
+* In order for the tasks/containers launched using Fargate to be accessible, an ENI is also created for each one.
+  * This therefore gives them each an IP address.
+  * Unlike with EC2-backed-ECS, where the number of IP addresses needed will be equal to the number of EC2 instances, with Fargate we likely require a larger pool of free IP addresses as each container needs its own IP address.
+  * Unlike EC2-backed-ECS, where the application will appear to be running on a random port, as the IP address is dedicated only to that running container, all Fargate containers are exposed on port 80 on their ENI's IP address.
+  * The security group of the ENI must allow traffic from the security group of the ALB if an ALB is configured.
+* Can be deployed within an ASG to scale up/down the number of containers based on various metrics (e.g. CPU usage).
+
+### Security
+* In order for the ECS agent to communicate with the ECS service, the EC2 instance it runs on required permissions to communicate with:
+  * ECS
+  * ECR
+  * CloudWatch
+* As each task being run on an EC2 instance may require different privilidges than another task, we are able to provide *task roles* that are tied to a specific task.
+  * This means that each container can be given the minimum amount of privilidges necessary for it to complete its work.
+  * Just because one container requires rights to use some service, it doesn't mean this needs to be universally granted to everything on the EC2 instance.
+* As instances will start on a random port on an EC2 instance, we must set the security group to allow access to all ports in order to link an ALB.
+
+## EKS (Elastic Kubernetes Service)
+* An AWS managed/hosted Kubernetes service.
+* Kubernetes is a container orchestration system facilitating deployment, scaling, and management of containerised applications.
+* Is an alternative to ECS.
+* As with ECS, worker nodes (the thing actually running the containers) can either be EC2 or Fargate.
+* As Kubernetes is cloud-agnositic (i.e. it doesn't particularly know or care where is it hosted), it is a good solution if a migration to another cloud platform is likely at some point.
+
+# Lambda
+* Service to run code serverlessly.
+* Ephemeral instances (up to 15 minutes long) which are started on-demand when executing code and stopped once the code has executed.
+* Only charged for time spent processing (measured in GB-seconds) and number of requests into the instances.
+* Automatic scaling.
+* Large number of compatible programming languages.
+  * If not natively supported, additional programming languages can be run using Lambda by using/developing a *custom runtime*.
+* Native integrations with many other AWS services.
+* Each instance is allowed up to 10GB of RAM.
+  * Increasing RAM available also increases the CPU and networking capabilities of the instance.
+* Lambda functions take a JSON object as a parameter and the return value of the function will form the response body to the caller.
+* The first time a Lambda function is invoked, an *init* phase is first run.
+  * This step is when Lambda is downloading the code to run, initialises runtimes, and other setup tasks.
+  * This time is billable as if it were typical execution time.
+  * On subsequent runs of the Lambda, there is no init phase.
+* As with other services, if the instance is to communicate with other AWS services, it needs to assume the appropriate role.
+  * This even applies to writing its logs to CloudWatch.
+* Resource limitations:
+  * 128MB - 10GB RAM
+  * Up to 15 minutes runtime
+  * Up to 4KB environment variables
+  * Up to 50GB (compressed) or 250MB (uncompressed) source ZIP file
+  * Up to 512MB temporary local disk storage whilst executing for additional ephemeral files
+
+## Lambda@Edge
+* Run Lambda functions in conjunction with CloudFront edge locations.
+* Triggered by incoming requests to CloudFront.
+* Can be used to manipulate the incoming request or the outgoing response.
+* Can be used to short-circuit the server that the request was intended for
+  * For instance, if the Lambda function is written to validate requests for obviously-bad structures, it can return an error response early to the caller without burdening the server.
+* Lambda usually runs in a specific region, but with Lambda@Edge, the Lambda will run wherever the edge node is.
+
+# API Gateway
+* Serverless, fully-managed, service for exposing a web API that will call out to other services on the user's behalf
+  * It is effectively a managed web controller layer
+* In many ways, it is similar to an ALB
+  * An ALB will expose services as an endpoint that can be accessed
+  * API Gateway has many more features beyond simply routing
+    * Built-in caching to prevent burdening the backend service(s) with similar requests
+    * Swagger and Open API definition importing
+    * Request throttling
+    * API key generation
+    * Request transformation and validation
+* It is useful in exposing a service that doesn't otherwise have a web API
+  * With API gateway, we define an API, and have the gateway call out to the services whenever the API is used
+  * A very common use-case it to point it to Lambda. Lambdas, being ephemeral, would not be suitable for hosting a web server, so are not easily accessible via HTTP without API Gateway.
+  * There are many native integrations with other AWS services so an adapter application to do this work is not necessary
+    * For instance, API Gateway can receive a HTTP request and send out an SQS message.
+* It may also be used to point to systems that already have an API
+  * API Gateway will likely, in this case, be used for its additional capabilities (such as throttling) so that these features do not need to be re-implemented by a developer in the application.
+* Can be used to create both HTTP and WebSocket APIs
+* The scope of the gateway (known as its *endpoint type*) can be one of three options:
+  * Edge-Optimised
+    * Although the Gateway actually resides in one specific region, it is accessible globally through any of AWS's edge-locations
+  * Regional
+    * As the name suggests, only accessible to the clients in the same region as the gateway
+  * Private
+    * Only accessible on the local VPC using an ENI on that same VPC
+
+## API Gateway Security
+* There are various ways to control access to the endpoints created in API Gateway
+* For applications/users within the AWS-ecosystem, we can authorise in the same way as we authorise other intra-service communication, with IAM
+  * We simply create a role that has explicit access to the API and have the user/service assume it
+  * Requests from these applications are verified using *sig/v4* which is a technique for holding the IAM information in the header and the API Gateway verifying these with the IAM service before continuing with the request.
+* If we wish to write out own method for authorising (perhaps because we want to integrate with some external auth system like OAuth), we can write a *Lambda Authoriser* (Also called *Custom Authoriser*).
+  * For this, we write a Lambda function which will read some information from the request header (typically a token), perform some sort of business logic on it to validate the token (typically by calling out to some external service), and return an IAM policy to use on this request's behalf.
+* For authentication of external users without writing out own code, we can utilise integration with *AWS Congnito*.
+  * This is a service to streamline creation of user accounts and login details.
+  * No custom code is required
+  * Only helps with authentication, not authorisation
+    * Any authorisation must be manually implemented in the backend services
+  * Unlike the other two options where API Gateway communicates with either Lambda or IAM on the client's behalf, in this solution it is expected that the client has called out to Cognito before sending the request so that it can retreive and attach a token. API Gateway will call out to Cognito itself upon receiving the request (and the token it contains) to verify that it is valid.
