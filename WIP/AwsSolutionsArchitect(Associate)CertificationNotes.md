@@ -515,13 +515,16 @@ AWS Solutions Architect (Associate) Certification Notes
   * Microsoft SQL Server
   * Amazon Aurora
   * Oracle
-* It is possible to host a database service in an EC2 instance, however this would not provide the added benefits of RDS being a managed service
+* It is possible to host a database service in an EC2 instance, however this would not provide the added benefits of RDS being a managed service:
   * Continuous backups
   * Cross AZ support
   * Scalability
   * Read replicas
   * Monitoring dashboards
   * Automatic upgrades
+* These database instances run on an EC2 instance, the size of which is selected when creating the database, however there is no access the the EC2 instance itself.
+* An EBS volume type is selected when creating the database.
+* The cost of the RDS instance is charged hourly based on the EC2 and EBS options selected.
 
 ## Backups
 * AWS runs an automated backup of RDS instances by default
@@ -595,7 +598,7 @@ AWS Solutions Architect (Associate) Certification Notes
     * This token can then be sent alongside requests to the database instance as verification to perform database actions.
     * This token only lasts for 15 minutes and a new token will need to be fetched if access is needed after this time.
 
-## Amazon Aurora
+# Amazon Aurora
 * Amazon's propriatary database engine.
 * Functionally compatible with MySQL and PostgreSQL
   * This means that either a MySQL or PostgreSQL driver can be used in an application and it will work with an Aurora database; the application won't even know it is Aurora.
@@ -672,8 +675,15 @@ AWS Solutions Architect (Associate) Certification Notes
 * Suppots TTLs for individual objects
 * Typically, you can only query objects in a DynamoDB table by the primary key, not the additional fields
   * However, additional indexes (either *Global Secondary Indexes*, *GSI*; or *Local Secondary Indexes*, *LSI*) can be created which add search functionality to arbritary fields.
-* Supports multi-table-transactions whereby we can garauntee an all-or-nothing approach when writing some related data to several tables at once.
+* Supports multi-table-transactions whereby we can guarantee an all-or-nothing approach when writing some related data to several tables at once.
   * A failed transaction will rollback so that we are not left in a bad state.
+* Can be used as a replacement for ElastiCache as a key-value store:
+  * Supports larger datasets
+  * Is fully managed (no provisioning of instances/storage)
+  * But, is not as fast
+* When deployed across multiple AZs, we decide between *eventual consistency* and *strong consistency*.
+  * If set to be eventually consistent, we write an update to an instance and AWS will asynchronously update all of the replicas.
+  * If set to be strongly consistent, we write an update to an instance and AWS will synchronously update all of the replicas. As a consequence, the database is slower to use.
 
 ## DynamoDB Accelerator (DAX)
 * Seamless managed cache for DynamoDB
@@ -697,6 +707,84 @@ AWS Solutions Architect (Associate) Certification Notes
 * The synchronisation of the tables is powered by DynamoDB Streams and, as such, they must be enabled in order to configure global tables.
 * Although they are technically different physical tables in the backend, from a user's perspective, it is as if they are talking to a single table (just perhaps via different endpoints).
 
+# Redshift
+* OLAP (Online Analytical Processing) service for analysis of big data held in OLTP (Online Transaction Processing) systems like S3 or RDS.
+* Based on PostgreSQL.
+* Marketted as being highly performant
+  * Utilises *Massively Parallel Processing* (*MPE*) whereby queries are executed in parallel to increase speed
+* Data is stored in a columnar fashion rather than in rows
+* Integrated with various business intelligence (BI) tools which act as the interface for creating queries and viewing results.
+  * Queries are SQL-based.
+* Is a cluster-based service whereby a number of nodes are provisioned to handle processing
+  * The customer is charged based on the provisioned capacity
+  * A cluster can contain between 1 and 128 nodes
+  * Nodes come in a variety of sizes which define their compute power
+  * Each node can hold up to 128 TB of data
+  * In a cluster, there exists 1 *leader node* and the rest are *compute nodes*
+    * The leader node is effectively the entrypoint to the system, queries are sent to it and it delegates the work to a number of compute nodes.
+    * Compute nodes execute their part of the query and send the results back to the leader for aggregation.
+* Data is loaded into Redshift from a number of OLTP databases
+  * There exist additional features, such as *Redshift Spectrum*, that can bypass the need to load the data into Redshift first.
+* Is **not** multi-AZ, the cluster exists in only 1 AZ.
+* To mitigate loss of data, *snapshots* can be created which create a point-in-time copy of the entire cluster and saves it into S3.
+  * Snapshots can be restored in the event of disaster.
+  * Snapshots are incremental
+    * Only what has changed in the cluster since the last snapshot is included in the new snapshot.
+  * Snapshots can be used to copy one cluster's data into another cluster.
+  * Snapshot events can be automated based on some fixed amount of time passing (e.g. 12 hours) or data being inserted (e.g. every 5GB)
+    * Automated snapshots can have an expiration assigned to them so that they get automatically deleted after a set period of time
+    * Manual snapshots live forever unless manually deleted
+  * Snapshots can be automatically copied into another region.
+    * Meaning you can also use this snapshot copy to spin up an identical Redshit cluster in another region (But they won't stay synchronised).
+* Data is pulled into Redshit from S3 using the `COPY` command in Redshift.
+  * This used SQL syntax in the form `COPY [data] FROM [S3_bucket] iam_role [IAM_role]`.
+  * If using certain S3 services, such as Kinesis Firehose, this copy command step can be run on your behalf.
+* Data can be pushed to Redshift from EC2 instances using application level code (e.g. JDBC).
+* *Enhanced VPC Routing* can be enabled if the S3 buckets that source the data are within the same VPC as the Redshift cluster.
+  * This means that all networking will be done within the VPC rather than going over the public internet.
+* *Redshift Spectrum* enables querying of data from S3 without having to load the data first
+  * Instead of the compute nodes querying data interally to Redshift, they query a set of thousands of AWS-controlled Spectrum nodes. The Spectrum nodes reach out to S3 on behalf of the compute nodes and sends data back.
+  * This greatly improves performance as the capabilities of the massive spectrum node array is used instead of the set of provisioned Redshit nodes in your own cluster.
+
+## Glue
+* Glue is an *Extract, Transform, Load* (ETL) service which sits between Redshift and its source data to perform initial transformations in order to make it easier ot analyse.
+* Glue can pull from similar sources as Redshift itself. Once in Glue, transformation will occur. Once the transformation is complete, Glue will send the result out to Redshift.
+
+### Glue Data Catalog
+* A database containing metadata for data sources in an AWS account.
+* Stores information about S3 buckets, RDS databases, DynamoDB tables, etc.
+* Data gets into the Glue Data Catalog via the *Glue Data Crawler* which crawls through each configured source to keep the catalog up-to-date.
+* Various services can consume from the Glue Data Catalog for data discovery reasons:
+  * Glue
+  * Athena
+  * Redshift Spectrum
+  * etc
+
+# Neptune
+* A fully-managed graph database service.
+* Up to 3 AZ coverage.
+* A clustered service
+  * 1 leader node
+  * Up to 15 read replica nodes
+  * All nodes share the same underlying storage volume
+  * Customer charged based on the amount of nodes provisioned in the cluster
+* Point-in-time recovery facilitated by automatic S3 backups.
+* Machine learning offering to make predicitons based on data stored in the graph.
+
+# OpenSearch (Previously AWS ElasticSearch)
+* Managed ELK stask (ElasticSearch, Logstash, Kibana)
+  * The project that AWS uses is a fork from an old version of the official ElasticSearch
+* It's version of ElasticSearch is very similar to DynamoDB as it offers storage and querying of JSON-like data
+  * However, it offers much more powerful search functionality
+    * Contrary to DynamoDB, where only the primary key is searchable, with ElasticSearch, any field can be searched for - even using partial matching
+* Native integration with other AWS services including Kinesis Firehose, and CloudWatch
+* Clustered
+  * Pay-per-node
+* Up to 3 AZ coverage.
+* It is common to use OpenSearch in conjunction with another databasing technology
+  * e.g. Using DynamoDB Streams to send data into ElasticSearch for stronger querying
+  * e.g. Transforming data from some source into a JSON format in Kinesis Firehose to insert into ElasticSearch
+
 # ElastiCache
 * Managed in-memory caching databases
   * Redis
@@ -706,7 +794,7 @@ AWS Solutions Architect (Associate) Certification Notes
 * Typical use case is to cache common database queries to a database so that load is taken off of the database instance.
 * As with RDS, the "power" of the cache is determined by the instance type the cache runs on.
 * IAM is not supported to authentication actions within the cache instances.
-  * IAM does control permissions for AWS-level ElastiCache operations (create/delete clusters etc)
+  * IAM does control permissions for AWS-level ElastiCache operations (create/delete clusters etc).
 
 ## Redis vs Memcached
 
@@ -1518,3 +1606,30 @@ AWS Solutions Architect (Associate) Certification Notes
   * Only helps with authentication, not authorisation
     * Any authorisation must be manually implemented in the backend services
   * Unlike the other two options where API Gateway communicates with either Lambda or IAM on the client's behalf, in this solution it is expected that the client has called out to Cognito before sending the request so that it can retreive and attach a token. API Gateway will call out to Cognito itself upon receiving the request (and the token it contains) to verify that it is valid.
+
+# Cognito
+* Cognito is a service to streamline the management of external users talking to your AWS system.
+
+## Cognito User Pools (CUP)
+* Can be thought of as a database of users.
+  * Each user will have a username/email and password
+  * We may also have 2FA set up for the user
+* CUP is exlcusively used for authentication (i.e. to prove who you are, it doesn't necessarily provide authorisation).
+* The user will log in to CUP by sending their login details. In return, CUP will return a JWT token for the user to use in subsequent requests.
+* Has integration with other identity providers (Google, Facebook, SAML, etc) so that their credentials can be used to log in to Cognito and Cognito will return a JWT token as it would if it was a "vanilla-Cognito" login.
+* Primarily used to authenticate communication with API Gateway.
+
+## Federated Identity Pools
+* Inspects the JWT token provided by CUP and returns temporary credentials that can be used by a user to directly access some AWS resource.
+* The temporary credentials that are returned have an associated IAM policy which determines exactly what the user will be allowed to do within AWS.
+
+## Cognito Sync
+* This is a service for synchronisation of application data for individual users.
+* It includes both the service in AWS that manages the storage of the data, and the libraries which are integrated into application code to utilise the service.
+* It is primarily used for application data such as user preferences.
+* The library is used to record the specified user data and upload it to the Sync service in AWS.
+* If there are other devices that need the same data, the library code running on the applications on those devices will constantly check for updates to this data and download it when available.
+* If the user's device is currently offline, the library code will hold onto the request and update the AWS service when it next has a connection.
+* It is possible to store up to 20 datasets of up to 1MB each.
+* Requires Federated Identity Pools.
+* Is now deprecated in favour of the similar *AppSync* service.
