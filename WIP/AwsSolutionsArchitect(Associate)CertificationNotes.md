@@ -747,7 +747,7 @@ AWS Solutions Architect (Associate) Certification Notes
   * This greatly improves performance as the capabilities of the massive spectrum node array is used instead of the set of provisioned Redshit nodes in your own cluster.
 
 ## Glue
-* Glue is an *Extract, Transform, Load* (ETL) service which sits between Redshift and its source data to perform initial transformations in order to make it easier ot analyse.
+* Glue is an *Extract, Transform, Load* (ETL) service which sits between Redshift and its source data to perform initial transformations in order to make it easier to analyse.
 * Glue can pull from similar sources as Redshift itself. Once in Glue, transformation will occur. Once the transformation is complete, Glue will send the result out to Redshift.
 
 ### Glue Data Catalog
@@ -1633,3 +1633,157 @@ AWS Solutions Architect (Associate) Certification Notes
 * It is possible to store up to 20 datasets of up to 1MB each.
 * Requires Federated Identity Pools.
 * Is now deprecated in favour of the similar *AppSync* service.
+
+# Monitoring
+## CloudWatch
+* This is the main AWS service for monitoring.
+* It provides capability to:
+  * View logs
+  * Collect metrics
+  * Trigger alarms
+  * Create dashboards
+* Collectively, the different sub-services within CloudWatch provides much of the same functionality as tools like Prometheus, ElasticSearch, and Grafana do, but for AWS-specific systems.
+
+### CloudWatch Metrics
+* The CloudWatch/AWS equivalent of Prometheus.
+* Numerical metrics are pushed to CloudWatch by applications/instances/infrastructure/services running on AWS and stored for evaluation or searching.
+* Most of the common AWS services send metrics automatically for free to CloudWatch.
+* Default metrics are once every 5 minutes by default, or once every 1 minute if paying for *Detailed Monitoring*.
+* Custom metrics can be created to supplement the default/free metrics the AWS provides out-of-the-box.
+  * These are sent every 1 minute by default, or the customer can pay more to send them more frequently.
+  * Unlike default metrics, with are live, custom metrics can have the timestamp altered to send historic/future values.
+    * Custom metrics may be up to 2 weeks in the past or 2 hours in the future.
+* CloudWatch Metrics *Dimensions* are labels associated with a metrics containing additional information.
+  * A dimension may be some value such as "environment" or "instanceId"
+  * A metrics may may up to 10 associated dimensions.
+* All metrics have an associated timestamp - meaning CloudWatch Metrics operated much like a timeseries database (just like Prometheus).
+* Metrics are group by namespace.
+  * AWS provides default values for its default metrics (e.g. "EBS", "Auto Scaling").
+  * Custom metrics can re-use one of AWS's namespaces (if it makes sense to do so) or a custom namespace can be provided.
+
+### CloudWatch Dashboards
+* The CloudWatch/AWS equivalent of Grafana.
+* Pre-defined visualisations of metrics, logs, and alarms.
+* Global service (i.e. not tied to a specific region).
+* Can visualise metrics from different regions and even different AWS accounts on the same dashboard.
+* Can be set to be viewable by people outside of the AWS account
+  * Public access
+  * Specific email addresses
+  * SSO access (Via AWS Cognito)
+* Dashboards are made up of one or many widgets.
+  * Line graphs, numbers, barcharts, text labels, log tables, pie charts, etc
+* The time range displayed on a dashboard can be changed on-demand
+* The timezone displayed on a dashboard is configurable.
+
+### CloudWatch Logs
+* CloudWatch Logs is a central point for storing logs for all things running on AWS.
+  * It is similar to the basics purpose of ElasticSearch or Loki, but is not as feature-full.
+  * AWS OpenSearch is available for an AWS-native ElasticSearch service.
+* Individual logs are found in a *log stream*.
+  * This is a collection of logs typically from a single instance.
+  * A stream is effectively a single log file.
+  * A single instance may choose to make two log streams, one for stdout and one for stderr.
+* Log stream are grouped together into *log groups*
+  * The name of a log group is arbritary, but typically is the name of an application.
+  * Every instance of an application would typically be writing to a log group with the application's name.
+  * If we wished to see what was happening in an application (across all of it's instances) we would typically view the logs contained within this log group.
+* Logs can have a retention period set or they can be set to never expire.
+* Most AWS services have the native ability to send logs to CloudWatch. However logs can be sent to CloudWatch manually using the SDK or CLI if necessary.
+* Logs can be filtered before inserting into dashboards or for use as the basis of alarms.
+  * e.g. The number of logs matching the filter can be counted and added to a metric, if that metric exceeds some pre-defined value, this can be used to trigger an alarm.
+* For other services to read logs in real-time, we need to use a *CloudWatch Subscription Filter*.
+  * This filters the logs coming out of CloudWatch Logs (The filter may simply be "All logs") and sends them out to whatever is subscribed to it.
+  * Subscribers may be:
+    * AWS Lambda functions
+    * Kinesis Data Firehose
+    * Kinesis Data Streams
+    * Amazon OpenSearch (Via an AWS-managed lambda function)
+* There exists a native functionality to export to S3, however this is not real-time and may happen in batches up to 12 hours old.
+* *Log Insights* allows you to query logs using a custom query language.
+  * This language is somewhat similar to SQL as specific fields can be extracted from the logs and sorting/limiting applied to extract log records.
+
+#### Sending Logs from an EC2 Instance
+* In order for a virtual server to send logs to CloudWatch, a CloudWatch agent application needs to be running on the instance to handle the communication.
+  * *CloudWatch Logs Agent*
+    * Deprecated
+    * Can send logs only
+  * *CloudWatch Unified Agent*
+    * Can send both logs and metrics
+    * Reports several system-level metrics to CloudWatch by default too (Running processes, CPU usage, disk space, etc) - this includes far more and in more details than the default metrics that the EC2 service itself provides.
+* The EC2 instance required IAM permissions for writing to CloudWatch in order for the agent to operate.
+
+### CloudWatch Alarms
+* The CloudWatch/AWS equivalent of Prometheus alerts and AlertManager.
+* Trigger an action if a metrics breaches some defined value.
+* There exist 3 alarm targets (services that get notified that an alarm is firing):
+  * EC2 (to start/stop/reboot and EC2 instance)
+  * ASG (To scale a group up or down)
+  * SNS (To notify some other service that the alarm has fired, for example, an AWS Lambda function)
+* To test actions on targets, it is possible to set an alarm into the firing state manually using the CLI.
+* An alarm can be in 1 of 3 states:
+  * OK - Alarm is not firing
+  * Alarm - Alarm is firing
+  * Insufficient Data - The underlying metric(s) for the alarm is currently null, so the alarm cannot be evaluated
+
+### CloudWatch Events
+* Instead of contacting a target when an alarm fires, we can drive a target using events.
+  * One event can interact with many targets, not just a single one.
+* CloudWatch Events is a capability of CloudWatch that monitors for events occuring in an AWS system and contacts a target whenever a particular events occurs.
+* Many AWS services generate events in response to something occurring by default.
+* Events contain a JSON payload detailing what has happened in that event.
+* An event could be, for example, a state change of an EC2 instance.
+* Only supports the default AWS-events bus - for events generated by AWS services.
+
+#### Amazon EventBridge
+* A successor to CloudWatch Events.
+* Supports additional event busses:
+  * Default AWS-events bus - for events generated by AWS services
+  * Partner events bus - for external SaaS service events (DataDog, PagerDuty, etc)
+  * Custom events busses - for events created by the customer in their own applications
+* Includes the *Schema Registry* for generating versioned schemas of events.
+  * This feature can analyse events on a bus, and generate a schema that matches it
+  * It also has a feature where, for a given schema, it can generate code snippets for various languages to read and deserialise these messages.
+
+## CloudTrail
+* Audit logs providing a history of all events and API calls that have occured within/against an AWS account.
+* Used for compliance, regulartory and governance purposes.
+* Events are, by default, kept for 90 days.
+  * To keep longer than this, they must be exported to S3 and Athena used for analysis.
+* Covers changes made as a result of:
+  * AWS service actions
+  * Web console interactions
+  * CLI commands
+  * API/SDK requests
+* CloudTrail logs can be forwarded to CloudWatch Log and S3 if desired.
+* CloudTrail events can be broadly separated into three categories
+  * Management Events
+    * Detail about interactions with account-level resources and services such as IAM policies.
+    * Enabled by default on all AWS accounts.
+  * Data Events
+    * Fine-grained detail about interactions with individual pieces of data within AWS services.
+    * e.g. S3 objects becing fetched/updated/deleted
+    * Typically high-volume.
+  * Insight Events
+    * Events of unusual activity on an AWS account.
+    * e.g. Service limits being exceeded, or higher than usual interactions with IAM
+    * Insights analysises what is normal in the account, and generate an event if something happens that does not match this normal profile.
+    * Only applies to write-events (Not read-events)
+
+# AWS Config
+* A service to review whether or not the settings in an AWS region comply with a set of predefined rules.
+* If the region does not comply with the rules, an event can be fired out to EventBridge or SNS to alert account users to the issue.
+* There are many settings that AWS Config can be used to check for, for example:
+  * Checking for public S3 buckets
+  * Checking for unsecured SSH access in secuity groups
+* AWS provides a set of managed Config rules that can be used
+* Custom config rules can also be defined. These are written using AWS Lambda.
+* A new check is either executed:
+  * For each config change
+  * On a regular schedule (e.g. Every 2 hours)
+* AWS Config Rules do not prevent settings from being applied, it can only report that something is non-compliant.
+* When checking for compliance, AWS COnfig cna save a snapshot of the settings at that moment in time.
+  * Collectively, these snapshots show hwo the settings have changed over time.
+  * We can revert settings back to old snapshots if desired.
+* If a non-compliant settings is found, AWS Config can trigger *AWS Config Remediations* to run an *SSM Document* to resolve the issues
+  * An SSM document is a definition of actions that *AWS Systems Manager* can perform on an account
+  * AWS provides a set of managed SSM documents for common tasks (e.g. Revoking unused IAM accounts)
