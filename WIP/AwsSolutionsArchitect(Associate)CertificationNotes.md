@@ -36,7 +36,33 @@ AWS Solutions Architect (Associate) Certification Notes
 ## Points of Presence (Edge Locations)
 * TO-DO
 
-# IAM (Identity and Access Management)
+# Organisations
+* A single company does not necessarily have a single AWS account.
+* Multiple AWS accounts can be grouped together to form an *organisation*.
+* In an organisation, one account is the *main account*, and there will be 1 or many *member accounts*.
+* There are various architectural reasons a company may choose to hold multiple accounts, such as:
+  * Creating different, isolated, environments for testing and production
+  * Distinguishing the AWS resources used by individual departments
+  * Regulatory restrictions
+* If using an organisation, the fees for AWS services across each of the member accounts can be aggregated and, as such, paid for using a single payment method.
+  * Aggregation is also applied for volume pricing, therefore the total cost across all accounts is likely to reduce when grouped within an organisation as the per-unit cost of services is reduced.
+    * e.g. If some service charges £2 for 0-10 units and £1 for 11-20 units, 2 accounts individually that used 10 units would be more expensive than an organisation containing these accounts as collectively they would enter the 11-20 unit category.
+* Accounts can be sub-divided further by grouping within *Organisational Units (OUs)*
+  * You can have as many OUs as you wish and OUs can contains other OUs.
+  * The arrangement of OUs is completely up to whatever architecture is desired by the company and makes sense for their admin purposes.
+  * e.g. a company may have a main OU encomparing everything, then several OUs within it for departments, and within each department OU it may have further OUs for individual projects, and the project OUs will contain multiple accounts representing each environment.
+* It is possible to restrict access to certain AWS services as the OU level using *Service Control Policies (SCPs)*
+  * An SCP lists which IAM actions a user within an OU can or cannot use.
+    * Not even the admin users within an account may access an action if the action is blacklisted in the SCP.
+  * SCPs applied to the parent OU will cascade down to the child OUs.
+  * The master account in the root OU is unaffected by any SCP, it can do anything it wants at all times.
+  * SCPs can be especially helpful in applying a blanket ban within an account to services that are not compliant with some regulation that needs to be followed.
+  * Deny policies take precedence over Allow policies, therefore, if an OU has inherited similar policies from its parents, one being a Deny and one being an Allow, the Deny will apply.
+* To migrate accounts from one OU to another, the account must first be removed from the OU to which it belongs, and then it must be invited to the new OU.
+  * If migration the master account within an OU, all member accounts must be migrated away from the OU first.
+
+# User and Permission Management
+## IAM (Identity and Access Management)
 * Global service - Settings span all regions
 * An AWS account is viewed/modified by users. IAM specifies these users and what permissions they hold.
 * An AWS account has a root user created when the account is set up. This user has unrestricted access to everything in the account and should generally only be used for creation of other, less privilidged, users.
@@ -53,7 +79,7 @@ AWS Solutions Architect (Associate) Certification Notes
     * AWS services like EC2 or Lambda instances
     * Users in another AWS account that you wish to grant permission to access items in your account.
 
-## IAM Policies
+### IAM Policies
 * A user (or a group) can be granted permissions by providing it with an IAM Policy.
 * An IAM Policy is a JSON document with the following structure:
   * ```json
@@ -89,14 +115,23 @@ AWS Solutions Architect (Associate) Certification Notes
   * Principal - An account/user/role to apply the policy to
   * Resource - The soecific resource this policy applies to (e.g. a specific S3 bucket)
   * Condition - Additional custom condition to evaluate to decide whether the policy should be applied.
+    * `NotIpAddress` - Apply if the client's IP address is not one of the ones within the condition values
+    * `RequestedRegion` - Apply if the region being requested matches one of the ones within the condition values
+    * Various other including checking the values of tags on AWS resources and checking whether the user is currently authenticated via MFA
 * There exists a tool called the "IAM Policy Simulator" which tests whetehr or not, for a given user, role, or policy, a specific action is permitted.
 
-## Policy Evaluation
+### Permission Boundaries
+* A permission boundary is an IAM policy applied to a user or a role (not a group) that defines the maximum set of permissions this user/group can ever be granted.
+* When obtaining permissions from other policies (e.g. typical IAM policies, resource-based policies, etc) if the permissions within those policies extend beyond what is defined in the user's/role's permission boundary, those permissions will not be granted.
+* The permission boundary acts like a failsafe - you can be safe in the knowledge that a given user/role can never obtain permissions to do anything outside of what has been defined in that one particular file.
+* Example use case: You wish to allow developers in your company the freedom to decide which permissions their users/roles need. However, you apply a permissions boundary to ensure they don't get over excited and grant themselves administrator privilidges to the AWS account.
+
+### Policy Evaluation
 * A user may have many policies applied to them (either directly or via their group(s)). This means that they have the potential to conflict. For example, if a policy attached to the user grants permission to read from S3 but a policy from their group explicitly denies reading from S3.
 * IAM flows through a set of steps to determine whether or not any given user has permissions given the set of policies attached to them:
   * ![IAM Policy Evaluation Flow](../media/IAMPolicyEvaluation.png)
 
-## User Account Security
+### User Account Security
 * As with many online accounts, an AWS user/root accounts are targets for bad-actors and therefore steps can be taken to mitigate compromisation:
   * Password Policies
     * We can specify that all accounts within an AWS account should meet certain critera such as:
@@ -111,7 +146,7 @@ AWS Solutions Architect (Associate) Certification Notes
       * Universal 2nd Factor Security Key (e.g. Yubikey) - Plugs into computer
 * Interfacing with AWS via command line or from code requires **Access Keys**. This means they can perform actions like a user but without providing it with the user's login credentials. The root user should not be used to generate access keys.
 
-## Reviewing Permissions
+### Reviewing Permissions
 * AWS advocates a principle of least privilidge where any given user should have access to only the permissions that they need to accomplish their job and no more. This limits the blast radius should something go wrong.
 * In order to help with this, there are 2 tools:
   * IAM Credentials Report
@@ -119,6 +154,70 @@ AWS Solutions Architect (Associate) Certification Notes
   * IAM Access Advisor
     * For any given user, lists all of the permissions that have granted and also when they last used that permission.
     * In theory, if a user hasn't used a permission in a long time then they do not need it for their job and it may be reasonable to remove the permission.
+
+## Cognito
+* Cognito is a service to streamline the management of external users talking to your AWS system.
+
+### Cognito User Pools (CUP)
+* Can be thought of as a database of users.
+  * Each user will have a username/email and password
+  * We may also have 2FA set up for the user
+* CUP is exlcusively used for authentication (i.e. to prove who you are, it doesn't necessarily provide authorisation).
+* The user will log in to CUP by sending their login details. In return, CUP will return a JWT token for the user to use in subsequent requests.
+* Has integration with other identity providers (Google, Facebook, SAML, etc) so that their credentials can be used to log in to Cognito and Cognito will return a JWT token as it would if it was a "vanilla-Cognito" login.
+* Primarily used to authenticate communication with API Gateway.
+
+### Federated Identity Pools
+* Inspects the JWT token provided by CUP and returns temporary credentials that can be used by a user to directly access some AWS resource.
+* The temporary credentials that are returned have an associated IAM policy which determines exactly what the user will be allowed to do within AWS.
+
+### Cognito Sync
+* This is a service for synchronisation of application data for individual users.
+* It includes both the service in AWS that manages the storage of the data, and the libraries which are integrated into application code to utilise the service.
+* It is primarily used for application data such as user preferences.
+* The library is used to record the specified user data and upload it to the Sync service in AWS.
+* If there are other devices that need the same data, the library code running on the applications on those devices will constantly check for updates to this data and download it when available.
+* If the user's device is currently offline, the library code will hold onto the request and update the AWS service when it next has a connection.
+* It is possible to store up to 20 datasets of up to 1MB each.
+* Requires Federated Identity Pools.
+* Is now deprecated in favour of the similar *AppSync* service.
+
+# STS (Security Token Service)
+* Responsible for finding out whether or not a user has the rights to access some AWS resource and returning a token for temporary access if it does.
+* Access to the target AWS resource is done by allowing the user to assume some IAM role that has access to that resource.
+* The tokens it issues, are valid for up to 1 hour.
+* The users that it evaluates can either be:
+  * IAM users (from either the local account or some other account)
+  * Users logged in via an external identity provider that utilises SAML
+  * Users logged in via an approved AWS identity provider partner (Google, Facebook, etc)
+    * Although this method is now deprecated by Cognito
+* STS is also responsible for generating MFA tokens for access to AWS root accounts
+* With federated user access (users managed outside AWS), the user authenticates themselves with the external identity provider, the identity provider sends the user some response, and this response is sent to STS by the user (or perhaps via a custom identity management application on the local network that manages everyone's login process to AWS). STS verifies with the trusted external identity provider whether this response was legitimate, if so STS grants the token.
+
+# AWS Active Directory
+* A managed service offering a cloud-based Microsoft Active Directory.
+  * Microsoft Active Directory is a platform offered on Windows operating systems that manages and maps various network-connected resources.
+    * Users
+    * Devices
+    * Permission groups
+    * File shares
+  * For user management, many organisations have a local AD server on their network that is used to authenticate users logging into one of the many client machines also on the network. It means that anybody's credentials will work on any of the organisation's machines.
+* A trust-connection can be established with an existing on-premesis AD server.
+  * Any requests for authentication will be checked against the databases in both the on-premesis and hosted versions of AD. If it exists in either, the request is approved.
+* The service can be configured in such a way that it manages no data itself, but instead simply acts as a proxy for an on-premesis AD server.
+  * This is known as *AD Connector*
+* A simplified version of Microsoft AD is also available on AWS, called *Simple AD*.
+  * It offers a subset of features of the full AWS Active Directory offering.
+  * In this setup, only a hosted version of AD exists, no on-premesis counterpart.
+  * Instead of being a hosted Microsoft AD, it is actually a hosted Samba AD, this follows many of the same protocols, but is not feature-complete.
+
+# AWS SSO
+* AWS offers an SSO solution whereby a single username/password can grant access to a variety of AWS and non-AWS applications/resources.
+* AWS SSO integrates with various user management systems (e.g. AD) to fetch a list of distinct users. The service is then responsible with integrating with other applications/services (e.g. GitHub, Dropbox, Office365) and logging in the user so they can use these services without creating additional accounts.
+  * Alternatively, AWS SSO can also act as the identity provider itself, without needed an external application/server to manage users.
+* AWS SSO works by sending over a SAML 2.0 file on behalf of the user that is logging in, therefore, it is compatible with any cloud application that accepts SAML 2.0.
+* As well as granting access to external applications, AWS SSO can be used to log in to one or multiple AWS accounts.
+* In contract to using STS, if using AWS SSO, there is no need to develop login screens/servers or manage the passing of SAML files and tokens between various components; AWS SSO handles much of the work for you.
 
 # EC2 (Elastic Compute Cloud)
 * Rent a virtual server on AWS
@@ -290,7 +389,7 @@ AWS Solutions Architect (Associate) Certification Notes
       * Assuming it is formatted as a cluster-aware filesystem.
   * `st1`: High-throughput HDD.
     * Intended for data-warehousing or logging.
-  * `sc1`: Low-throughput (cold) HHD.
+  * `sc1`: Low-throughput (cold) HDD.
     * Lowest cold.
     * Intended as an archive drive.
 * Only SSD instance types can be used as the root volume of an EC2 instance.
@@ -947,6 +1046,7 @@ AWS Solutions Architect (Associate) Certification Notes
   * Resource-based
     * Defines which actions can be performed on a specific resource in S3
     * Resource may be a bucket or an object
+    * Other services which store/manipulate/expose resources also support resource-based policies such as SQS and SNS.
 * Historically, S3 buckets were publically accessible. This led to data leaks of company data and AWS responded by adding the option to optionally block public access to buckets.
   * Unless the bucket *needs* to be public, it is best practice to disable public access.
   * Can be applied at the account level so that buckets in S3, under the sae account, have the same preference unless otherwise set.
@@ -1607,33 +1707,6 @@ AWS Solutions Architect (Associate) Certification Notes
     * Any authorisation must be manually implemented in the backend services
   * Unlike the other two options where API Gateway communicates with either Lambda or IAM on the client's behalf, in this solution it is expected that the client has called out to Cognito before sending the request so that it can retreive and attach a token. API Gateway will call out to Cognito itself upon receiving the request (and the token it contains) to verify that it is valid.
 
-# Cognito
-* Cognito is a service to streamline the management of external users talking to your AWS system.
-
-## Cognito User Pools (CUP)
-* Can be thought of as a database of users.
-  * Each user will have a username/email and password
-  * We may also have 2FA set up for the user
-* CUP is exlcusively used for authentication (i.e. to prove who you are, it doesn't necessarily provide authorisation).
-* The user will log in to CUP by sending their login details. In return, CUP will return a JWT token for the user to use in subsequent requests.
-* Has integration with other identity providers (Google, Facebook, SAML, etc) so that their credentials can be used to log in to Cognito and Cognito will return a JWT token as it would if it was a "vanilla-Cognito" login.
-* Primarily used to authenticate communication with API Gateway.
-
-## Federated Identity Pools
-* Inspects the JWT token provided by CUP and returns temporary credentials that can be used by a user to directly access some AWS resource.
-* The temporary credentials that are returned have an associated IAM policy which determines exactly what the user will be allowed to do within AWS.
-
-## Cognito Sync
-* This is a service for synchronisation of application data for individual users.
-* It includes both the service in AWS that manages the storage of the data, and the libraries which are integrated into application code to utilise the service.
-* It is primarily used for application data such as user preferences.
-* The library is used to record the specified user data and upload it to the Sync service in AWS.
-* If there are other devices that need the same data, the library code running on the applications on those devices will constantly check for updates to this data and download it when available.
-* If the user's device is currently offline, the library code will hold onto the request and update the AWS service when it next has a connection.
-* It is possible to store up to 20 datasets of up to 1MB each.
-* Requires Federated Identity Pools.
-* Is now deprecated in favour of the similar *AppSync* service.
-
 # Monitoring
 ## CloudWatch
 * This is the main AWS service for monitoring.
@@ -1787,3 +1860,14 @@ AWS Solutions Architect (Associate) Certification Notes
 * If a non-compliant settings is found, AWS Config can trigger *AWS Config Remediations* to run an *SSM Document* to resolve the issues
   * An SSM document is a definition of actions that *AWS Systems Manager* can perform on an account
   * AWS provides a set of managed SSM documents for common tasks (e.g. Revoking unused IAM accounts)
+
+# Resource Access Manager (RAM)
+* A feature of AWS that allows the owner of some resources the ability to share a limited amount of ownership of that resource with other AWS accounts.
+* The third party AWS accounts are free to create/edit/delete things on/in the shared resources that they have created. However, they do not have the permission to mutate things created by another account.
+* A common resource to share via RAM is a VPC.
+  * By sharing a VPC with another account, the external account can create their own AWS services on the same VPC as you and the services can communicate via private IP addresses within the same network. This massively simplifies networking between accounts.
+  * ![Sharing VPC Using RAM](../media/SharingVpcUsingRam.png)
+* Various other resources can be shared using RAM:
+  * Route53 resolver rules
+  * Aurora database clusters
+  * etc...
