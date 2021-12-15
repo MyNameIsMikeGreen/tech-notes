@@ -1871,3 +1871,32 @@ AWS Solutions Architect (Associate) Certification Notes
   * Route53 resolver rules
   * Aurora database clusters
   * etc...
+
+# Encryption
+## KMS (Key Management Service)
+* A service to provide/manage/store encryption keys for most services across AWS.
+* Region-specific. Keys cannot be shared across regions.
+* Supports both symmetric (Single key for encryption and decryption e.g. AES) and asymmetric (Public key for encryption, private key(s) for decryption e.g. RSA) keys.
+* AWS services with native KMS integration will typically be using a symmetric KMS key (behind layers of abstraction).
+* Typically, use of symmetric keys will be used when within AWS and/or the client(s) have access to KMS themselves (so they can grab the key) whereas asymmetric keys will be used when the client(s) outside of AWS.
+* Each key has exactly one policy associated with it.
+  * A KMS policy defines:
+    * Who (user/role) can use the key in which situations
+    * Who (user/role) can administer the key (make changes to it or its policy).
+  * Unless a custom key policy is supplied, the default key policy (which allows access to the key to all users/roles in an account) is appled.
+* KMS supports the automated rotation of keys and policies.
+* CloudTrail can be used to see who has accessed a KMS key.
+* In general, there are 2 costs associated with KMS: Key creation/storage, and API requests
+  * When creating/importing a custom KMS key, the account will be charged $1/month to store this key.
+  * Requests to KMS (either directly or via some other service that needs access to KMS keys) are charged on a per-API-call level.
+  * There is no storage costs for AWS-owned/managed keys (Known as "AWS Managed Service Default Customer Master Keys")
+    * These keys are global keys that AWS uses for service-to-service encryption. The customer has no direct access to these.
+* If using an AWS service that supports encrypted snapshots, if that snapshot needs to be transferred to another region, as KMS is region specific, the snapshot must be re-encrypted with a new key from the new region as part of the migration process.
+* KMS has the ability to rotate custom keys (not the ones managed by AWS)
+  * Automatic rotation, if enabled, will rotate a key once per year
+    * When rotated, the ID of the key will stay the same - from the outside, nothing appears to have happened
+    * The old key will still secretly remain in service, still referenced by the same KMS ID as the new key, so that KMS can still decrypt data encrypted with the old key.
+  * Manual rotatation, if enabled, rotates keys on a custom time scheudle
+    * Unlike with automatic rotation, this involves creating an entirely new key with an entirely different KMS ID.
+    * In order to not break everything, the same alias for the key should be used for both the new key and the old key. If doing this, it allows the user to decrypt data encrypted with the old key.
+    * The old key can be disabled/removed if it is no longer desired.
