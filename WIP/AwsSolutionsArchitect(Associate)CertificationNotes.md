@@ -1900,3 +1900,102 @@ AWS Solutions Architect (Associate) Certification Notes
     * Unlike with automatic rotation, this involves creating an entirely new key with an entirely different KMS ID.
     * In order to not break everything, the same alias for the key should be used for both the new key and the old key. If doing this, it allows the user to decrypt data encrypted with the old key.
     * The old key can be disabled/removed if it is no longer desired.
+
+## SSM Parameter Store
+* An AWS-hosted store of variables.
+* Each variable (parameter) can be one of three types:
+  * `String`
+  * `StringList`
+  * `SecureString` (String encrypted by KMS)
+* Typically used for configuration values and secrets.
+* Integrtion with KMS to store secret values in an encrypted form.
+* Supports versioning of individual values.
+* Just like with S3, individual parameters can be organised by paths (folders/directories) to group similar parameters together.
+  * It is possible to restrict access to parameters via their path in IAM.
+* AWS themselves also host useful parameters relating to their services in parameter store.
+* When storing a new parameter, the customer must decide between 2 storage tiers:
+  * Standard (Free) Tier
+    * Up to 10,000 per AWS account
+    * Each parameter can be up to 4KB
+    * Free to store each parameter
+    * Free to interact with parameters if requests are low-throughput; but still charged if the throughput becomes too high.
+    * Parameters policies unavailable
+  * Advanced (Paid) Tier
+    * Up to 100,000 per AWS account
+    * Each parameter can be up to 8KB
+    * Charged a fee to store each parameter
+    * Charged an access fee regardless of throughput
+    * Supports parameters policies
+* **Parameter policies** define what to do if a certain amount of time has passed without a specific parameter being changed.
+  * Expire the parameter
+  * Notify (via a CloudWatch event) that an expiration is imminent
+  * Notify (via a CloudWatch event) that there has been no update in a certain period of time
+
+## Secrets Manager
+* As the name implies, it is a service for storing and managing secrets.
+* It shares many similarities with SSM Parameter Store, but is soley focused on secrets rather than being a general-purpose value store.
+* One of the main features of SM is the ability to force rotation of keys on a schedule.
+  * Each time this schedule is triggered, a nominated Lambda function will be run to generate a new value.
+* Supports RDS, RedShift, and DocumentDB integration to update database secrets.
+* All secrets stored in the service are encrypted by KMS.
+
+## CloudHSM
+* A service for renting dedicated physical Hardware Security Modules in AWS's data centre for your exclusive use.
+  * HSMs are used to generate cryptographic keys, perform signing operations, and various other cryptographic-related activities.
+* KMS uses HSMs behind the scenes in order to perform cryptographic actions, but these are hidden away and managed by AWS themselves. The customer has no access to them.
+  * This means the customer has less flexibility and control over several aspects of their cryptographic strategy.
+  * Certain regulatory bodies may require the use of directly-controlled HSMs.
+* Performing activities on the HSM cluster is performed via the CloudHSM client application.
+
+### KMS Comparison
+| Feature           | KMS                                                  | CloudHSM                                      |
+|-------------------|------------------------------------------------------|-----------------------------------------------|
+| Shared Hardware   | Yes - Multiple customers on same underlying hardware | No - One customer per device                  |
+| Security Standard | FIPS 140-2 Level 2                                   | FIPS 140-2 Level 3                            |
+| Keys              | AWS-owned, AWS-managed, customer-managed             | Customer-managed                              |
+| Key Support       | Symmetric, asymmetric, signing                       | Symmetric, asymmetric, signing, hashing       |
+| Scope             | Created within a specific region                     | Created within a VPC                          |
+| Management        | AWS web console, CLI, or SDKs                        | Dedicated CloudHSM client application         |
+| Acceleration      | None                                                 | Hardware acceleration                         |
+| Access            | IAM                                                  | Users created and managed manually via client |
+| Availability      | Managed fully by AWS                                 | Requires separate devices across AZs          |
+| MFA Support       | No                                                   | Yes                                           |
+| Free Tier         | Yes                                                  | No                                            |
+
+# Attack Protection
+## AWS Shield
+* DDoS protection service
+* Standard tier enabled on all AWS accounts
+  * Protects against typical DDoS attacks
+  * Operated at the OSA layer 4 (TCP)
+* Advanced tier available for $3000 per organisation
+  * All the protection of the standard tier plus additional features
+  * Support for attacks that are specifically targetting:
+    * EC2
+    * ELB
+    * CloudFront
+    * Route53
+    * Global Accelerator
+  * Any fees incurred by higher load during a DDoS attack are waived
+  * Access to a 24/7 DDoS Support Team (DST) at AWS
+
+## Web Application Firewall (WAF)
+* Operates at OSI layer 7 (HTTP) to prevent common web exploits
+* Deployed on outward-facing services:
+  * ALB
+  * API Gateway
+  * CloudFront
+* Creating Web Access Control Lists (Web ACLs), defines the rules that WAF will use to determine whether or not to block traffic to the service
+* Web ACLs can operate on various attributes, including:
+  * Origin IP addresses
+  * HTTP headers
+  * HTTP body
+  * URI strings
+  * Request size
+  * Origin country
+  * Rate of certain events (e.g. the rate of requests from a single IP address)
+* WAF contains the ability to detect and mitigate attempts to use SQL injection or XSS on the services it protects
+
+## Firewall Manager
+* A tool to manage the rules across all WAFs in all accounts within an organisation
+* Also supports management of AWS Shield, and EC2/VPC security groups
