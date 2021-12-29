@@ -182,6 +182,88 @@ AWS Solutions Architect (Associate) Certification Notes
 * Requires Federated Identity Pools.
 * Is now deprecated in favour of the similar *AppSync* service.
 
+# Networking
+## IP Ranges
+* IP ranges can be defined using CIDR notation.
+  * CIDR notation takes the form `192.168.0.0/16` where `192.168.0.0` is the base IP address and `/16` defines how many bits (from left to right) in the IP range are fixed/unchanging within the range it represents.
+  * The above CIDR range would represent the IP range `192.168.0.0` to `192.168.255.255`.
+* IANA reserves certain IP ranges for use only by private networks.
+  * `192.168.0.0/16`
+    * Small (home) networks
+  * `10.0.0.0/8`
+    * Large corporate networks
+  * `172.16.0.0/12`
+    * Represents the range `172.16.12.0` to `172.31.255.255`
+
+## VPC (Virtual Private Cloud)
+* A VPC is a virtual private network.
+  * It simulates the networking behvaiour of a traditional data centre and facilitates communication of services inside the network to each other and with the internet.
+* AWS accounts come with a default VPC. More can be created as needed.
+* The VPC itself will have a CIDR range. However the VPC can be sub-divded into seperate subnets, each with a distinct range within the overall VPCs range for further isolation of resources.
+  * Each of these subnets can reside in different AZs to the other subnets.
+  * Any private CIDR range can be selected here.
+    * It is generally best practice to choose a CIDR range that is distinct from any other networks that will be in use (e.g. a corporate network) so that, if we chose to link them in the future, there would be no IP conflicts.
+  * For any subnet, 5 of the IP addresses are reserved by AWS and are not available to be assigned to instances within it.
+* A VPC, by itself, cannot connect to the internet. By default, all traffic is contained within the VPC itself.
+  * In order to provide a "way out" for the traffic that needs to go to/from the internet, we must assign the VPC an **Internet Gateway (IGW)**.
+  * Traffic within the VPC that is destined for the internet, must be routed to the IGW. From here, the IGW will handle getting the traffic to the internet on behalf of the VPC.
+    * To route traffic, based on the IP address it is destined for, we need to edit the **Route Table** assigned to the VPC to specify that IP addresses in the non-public range should be sent ot the IGW.
+
+## Routing Traffic to Private Subnets
+* Althought a VPC can be divided into several subnets, it is possible to route traffic between them. A common use case for this is to implement a *bastion host*.
+  * This is an EC2 instance in a public subnet (one which has internet access) which has SSH access to instances in a private subnet (one without internet access) so that the private instances can be controlled remotely.
+  * For security, a bastion host and the EC2 instances it connects to must have strict security group rules in place (i.e. only allow port 22 access). Otherwise the private EC2 instances might as well be in the public subnet as the private subnet would be offering little security.
+* Bastion hosts are primarily used for human-interactions with private EC2 instances. But in many cases we may require traffic to flow to/from private instances as part of application logic.
+  * The original way to achieve this was using **NAT Instances** (Network Address Translation).
+    * This is an EC2 instance that can be deployed to a public subnet and will perform the communication to the external server on behalf of the private instance.
+    * The NAT instance will see that the private instance is trying to communicate with some external server, capture the packets, re-write the source/destination packets, and forward the traffic on.
+      * Source/destination re-writing is necessary as it becomes the new source of requests from the external server's perspective so it needs to write itself as the source so that the server can send the response back to it.
+    * Any NAT OS/AMI can be deployed on an EC2 instance to perform the NAT functions. AWS used to provide an official AMI for NAT functionality but pulled support in 2020 in favour of alternative solutions.
+  * The new/correct way to achieve this is to use a *NAT Gateway*.
+    * This is a fully-managed version of a NAT instance.
+    * Offers automatic scaling of bandwidth up to 45 Gbps.
+    * Unlike with NAT Instances, as they are simple EC2 instances, NAT Gateways do not require security groups to be set-up. AWS handles the security of communication itself.
+    * Cannot be used to perform NAT on instances within the same subnet (although, you probably wouldn't need/want to anyway). The traffic must come from another subnet.
+    * Is deployed to an AZ. So if there exists EC2 instances in different AZs, with the same use-case, they will require their own NAT Gateway, in their own AZ, in order to work - they cannot use the NAT Gateway from another AZ.
+
+## DNS
+* Instances in a VPC usually need to be able to resolve hostnames to IP addresses using a DNS server if they are to communicate to other systems (particularly public/external ones).
+  * There are two options: use Route53, or host a custom DNS server within the VPC that the instances query.
+  * To have access to Route53, we must enable the `enableDnsSupport` flag on the VPC.
+    * When this is done, it is possible to access Route53 from both Route53s typical IP address (`169.254.169.253`) or via the reserved DNS IP address of the subnet (The 3rd IP address in the range).
+* For instances within a VPC to be provided with a hostname, the `enableDnsHostnames` flag must be enabled.
+* It is possible to create a *Private Hosted Zone* in Route53 which contains DNS records for specific VPCs.
+  * This enables you to give hostnames to instances in private instances and therefore other instances within the VPC can find the private instances via the hostname (via Route53) rather than needing to know its IP address.
+
+## NACLs (Network Access Control Lists)
+* A NACL is very similar to a security group. It acts like a firewall. However, unlike security groups, which act instances/services, NACLs operate on a subnet.
+* Each NACL contains 2 rule lists, one for inbound and one for outbound packets, specifying whether or not to allow the traffic depending on its protocol, IP source/destination, port, etc.
+  * Works using a precedence mechanism. The lower the precedence number associates with an individual rule, the more important it is.
+  * A request is evaluated by looking for the first rule match that matches up with the IP address from the rule list (starting at the rule with precendence number of `1`), and denying/allowing depending on what that specifies.
+* Unlike security groups, NACLs are stateless.
+  * i.e., the packets are evaluated both when they are incoming and outgoing, even if they are part of the same overall request.
+    * With security groups, if the packets were allowed in (incoming request), the response packets are automatically allowed out too.
+* A default NACL is included on all subnets in a VPC
+  * This NACL allows all traffic into our out of the subnet it is associated with.
+* When sending a request, the server needs to know the client port to send the response to. Usually, this port will be created on-the-fly for the purposes of receiving that specific response - this is known as an *ephemeral port*.
+  * This therefore means that a server that some instance talks to may be required to talk to one of potentially thousands of possible ports and there is no way to know which one specifically ahead of time.
+  * It is important to therefore, if ephemeral ports will be used by instances within a subnet, to ensure that the NACL rules allow traffic for the entire range of possible ports.
+
+### NACLs vs Security Groups
+| NACLs                                                              | Security Groups                                                        |
+|--------------------------------------------------------------------|------------------------------------------------------------------------|
+| Applied to individual subnets                                      | Applied to individual instances                                        |
+| Supports ALLOW and DENY rules                                      | Supports ALLOW rules - everything else implicitly denied               |
+| Stateless: Return traffic needs explicit permission                | Stateful: Return traffic automatically allowed                         |
+| Rules evaluated in priority order until a matching rule is reached | All rules are evaluated before deciding whether the request is allowed |
+
+## VPC Reachability Analyser
+* A tool provided by AWS to test whether or not traffic can flow between two endpoints within a VPC.
+* Produces a report explaining where/why traffic was blocked along the route if the transfer was unsuccessful.
+  * It may detail problems with NACLs, security groups, route tables, etc.
+* It does not actually send packets through the VPC - it tests against an equivalent model of your VPC in its own environment.
+* A single test of connectivity between two endpoints is charged as a $0.10 flat fee.
+
 # STS (Security Token Service)
 * Responsible for finding out whether or not a user has the rights to access some AWS resource and returning a token for temporary access if it does.
 * Access to the target AWS resource is done by allowing the user to assume some IAM role that has access to that resource.
@@ -1999,3 +2081,28 @@ AWS Solutions Architect (Associate) Certification Notes
 ## Firewall Manager
 * A tool to manage the rules across all WAFs in all accounts within an organisation
 * Also supports management of AWS Shield, and EC2/VPC security groups
+
+## AWS GuardDuty
+* A tool that analyses various AWS logs using AI and machine learning techniques to identify suspicious behaviour.
+  * CloudTrail
+  * VPC logs
+  * DNS logs
+* GuardDuty does *not* scan CloudWatch logs.
+* If GuardDuty identifies something that may need to be acted upon, it fires a CloudWatch alert.
+  * This alert could then be consumed by a Lambda, SNS topic, or other service to be reacted to in the appropriate manner.
+* It may notify of unusual API calls, suspicious deployments, strange traffic patterns, or suspected cryptocurrency mining attacks.
+
+## Amazon Inspector
+* A service for generating security reports about running EC2 instances.
+* Assesses:
+  * Host OS/software vulnerabilities
+    * Requires the Amazon Inspector Agent package to be installed on the EC2 instance
+  * Network accessibility vulnerabilities
+    * Is performed by the Amazon Inspector service itself so requires no agent to be running on the EC2 instance
+* Once the report is generated by the service, it is sent to an SNS topic.
+
+## Amazon Macie
+* An AI tool to discover PII (Personally-Identifiable Information) held within AWS services on an account.
+* If enabled on a service (e.g. S3), Macie will search through the data held within it and attempt to identify whether or not any PII exists.
+* If Macie finds PII, it will notify EventBridge.
+  * EventBridge integrations can then respond to the notification accordingly.
