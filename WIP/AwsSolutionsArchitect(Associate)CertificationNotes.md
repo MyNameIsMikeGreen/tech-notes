@@ -209,6 +209,20 @@ AWS Solutions Architect (Associate) Certification Notes
   * Traffic within the VPC that is destined for the internet, must be routed to the IGW. From here, the IGW will handle getting the traffic to the internet on behalf of the VPC.
     * To route traffic, based on the IP address it is destined for, we need to edit the **Route Table** assigned to the VPC to specify that IP addresses in the non-public range should be sent ot the IGW.
 
+### VPC Peering
+* VPC Peering connects two VPCs together so that they can communicate as if they were the same network.
+* To prevent address conflicts, the two VPCs that are peered must have non-overlapping CIDR ranges.
+* VPC Peering strictly only allow connecting together a pair of VPCs - a single VPC peering connection can only suppport the communication between the two defined VPCs to communicate across it.
+  * Multiple VPC peering connections can be set up to allow a single VPC to communicate with other VPCs.
+* It is **not** transitive - A request from one VPC cannot hop over multiple VPC peering connections to reach a VPC that it is not directly peered with.
+  * If a VPC needs to communicate with another VPC, it must have its own explicitly defined VPC peering connection set up.
+* Every subnet that needs to communicate across VPCs, on both sides, must have its routing table updated to define that they traffic flow must go via the peering connection.
+* VPC peering connections can join VPCs that are:
+  * In the same account
+  * In different accounts
+  * In the same region
+  * In different regions
+
 ## Routing Traffic to Private Subnets
 * Althought a VPC can be divided into several subnets, it is possible to route traffic between them. A common use case for this is to implement a *bastion host*.
   * This is an EC2 instance in a public subnet (one which has internet access) which has SSH access to instances in a private subnet (one without internet access) so that the private instances can be controlled remotely.
@@ -225,6 +239,26 @@ AWS Solutions Architect (Associate) Certification Notes
     * Unlike with NAT Instances, as they are simple EC2 instances, NAT Gateways do not require security groups to be set-up. AWS handles the security of communication itself.
     * Cannot be used to perform NAT on instances within the same subnet (although, you probably wouldn't need/want to anyway). The traffic must come from another subnet.
     * Is deployed to an AZ. So if there exists EC2 instances in different AZs, with the same use-case, they will require their own NAT Gateway, in their own AZ, in order to work - they cannot use the NAT Gateway from another AZ.
+
+## VPC Endpoints
+* AWS services (such as DynamoDB, S3, or SNS) all reside within AWS's network, but are accessible via the internet.
+* One way to access these services from a VPC is to communicate via the VPCs internet gateway and over the public internet.
+  * If the subnet our application lives in is private, we will additionally also need to communicate via a NAT Gateway to get this traffic to the internet gateway.
+  * This is sub-optimal:
+    * Gateway access is quite expensive
+    * The data is less secure as it goes outside of AWS's network
+    * The latency is poor as the packets have many hops along the way, including going out-of only to come back-into AWS's network
+* There exist two variants of VPC endpoints, but they acheive the same broad goal:
+  * Interface Endpoints
+    * These create an ENI inside the subnet that is linked to the service that it has been set up for. The ENI lives inside the subnet and performs AWS-magic to transmit the traffic to/from the service.
+    * Security is managed by security groups.
+    * Supports almost all AWS services.
+  * Gateway Endpoints
+    * Operate similarly to other gateways in VPC networking.
+    * The gate way is responsble for handling the communication to a different location if the VPC is able to route traffic to it.
+    * Requires changes to the subnet's route tables to ensure that traffic intended for the gateway is routed to the gateway.
+    * Only supports S3 and DynamoDB.
+    * AWS manages the entry in the route tables itself (The entry cannot be modified by the customer beynd adding/deleting it). They set it up in a way such that any traffic intended for the associated service will be routed to the gateway.
 
 ## DNS
 * Instances in a VPC usually need to be able to resolve hostnames to IP addresses using a DNS server if they are to communicate to other systems (particularly public/external ones).
@@ -263,6 +297,31 @@ AWS Solutions Architect (Associate) Certification Notes
   * It may detail problems with NACLs, security groups, route tables, etc.
 * It does not actually send packets through the VPC - it tests against an equivalent model of your VPC in its own environment.
 * A single test of connectivity between two endpoints is charged as a $0.10 flat fee.
+
+## VPC Flow Logs
+* Traffic moving to/from/through VPCs can be logged to S3 or CloudWatch.
+* Logs contain the following fields per record:
+  * Version
+  * Account ID
+  * Interface ID
+  * Source
+  * Destination
+  * Port
+  * Protocol
+  * Packets
+  * Bytes
+  * Start time
+  * End time
+  * Action (Accept/Reject)
+  * Log status
+* They are invaluable when troubleshooting why a service may be experiencing connectivity issues
+  * We can trace the flow of traffic to determine where it was blocked or mis-routed
+* Logs can be at different granularity levels:
+  * VPC level
+  * Subnet level
+  * ENI level
+* Included traffic to/from AWS-managed networking services too (e.g. Internet Gateway)
+* Can send to AWS Athena for complex querying
 
 # STS (Security Token Service)
 * Responsible for finding out whether or not a user has the rights to access some AWS resource and returning a token for temporary access if it does.
