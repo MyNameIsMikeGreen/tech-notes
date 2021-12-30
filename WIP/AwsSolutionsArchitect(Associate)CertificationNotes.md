@@ -224,7 +224,7 @@ AWS Solutions Architect (Associate) Certification Notes
   * In different regions
 
 ## Routing Traffic to Private Subnets
-* Althought a VPC can be divided into several subnets, it is possible to route traffic between them. A common use case for this is to implement a *bastion host*.
+* Although a VPC can be divided into several subnets, it is possible to route traffic between them. A common use case for this is to implement a *bastion host*.
   * This is an EC2 instance in a public subnet (one which has internet access) which has SSH access to instances in a private subnet (one without internet access) so that the private instances can be controlled remotely.
   * For security, a bastion host and the EC2 instances it connects to must have strict security group rules in place (i.e. only allow port 22 access). Otherwise the private EC2 instances might as well be in the public subnet as the private subnet would be offering little security.
 * Bastion hosts are primarily used for human-interactions with private EC2 instances. But in many cases we may require traffic to flow to/from private instances as part of application logic.
@@ -259,6 +259,45 @@ AWS Solutions Architect (Associate) Certification Notes
     * Requires changes to the subnet's route tables to ensure that traffic intended for the gateway is routed to the gateway.
     * Only supports S3 and DynamoDB.
     * AWS manages the entry in the route tables itself (The entry cannot be modified by the customer beynd adding/deleting it). They set it up in a way such that any traffic intended for the associated service will be routed to the gateway.
+
+## Connecting an External Network to a VPC
+### Over the Internet
+* Achieved by creating a *AWS Site-to-Site VPN*.
+* Involves creating a *Virtual Private Gateway* on the AWS VPC that you wish to connect to, and a *Customer Gateway* on the external network.
+  * Virtual Private Gateway is an AWS networking service just like Internet Gateway or NAT Gateway, but this gateway specialises in handling traffic to/from external networks.
+  * Customer Gateway is an application or hardware device on the customer's external network that handles the communication to/from the Virtual Private Gateway.
+* Communication will be over the public internet. But, as it is a VPN connection, will be encrypted.
+* The external network must be publically addressable. If it isn't already, this can be achieved by having it communicate through a NAT.
+* Requires *Route Propagation* to be set up in the VPC's route table.
+* A single Virtual Private Gateway for a VPC can be used to communicate with multiple external networks at once.
+  * These networks can also communicate with each other through the Virtual Private Gateway (i.e., it is transitive).
+  * Utilised a hub-and-spoke pattern.
+  * This feature is known as *AWS VPN CloudHub*.
+
+### Over a Dedicated Private Connection
+* Achieved using Amazon Direct Connect (DX).
+* Involves communicating with AWS without ever going over the public internet.
+* Communication happens between an *AWS Direct Connect Location*. These are data centres (owned by third party partners), that have very fast direct physical links to AWS data centres.
+  * Your business's network may already be hosted in this data centre and, if so, Direct Connect will be simpler to set up.
+  * If your business's network is not aleady hosted in a partner's data centre, they will need to be contacted directly to discuss the best way to connect you to them.
+* As with Site-to-Site VPN, requires the VPC being targetted to have a Virtual Private Gateway to set up to handle the traffic.
+* The external network can access both public (AWS services like S3 and DynamoDB) and private AWS resources (e.g. Specific EC2 Instances) over the same Direct Connect connection.
+* The partner can offer a *dedicated connection* where each customer is provided with their own physical ethernet port that no other customer is using.
+  * Alternatively, the hardware/ports will be shared between customers of the partner - known as a *Hosted Connection*.
+    * However, hosted connections are more flexible as their bandwidth can be scaled at will.
+* Not all partners offer the same speeds or connection types.
+* Offers a much better network
+  * Higher speed (Up to 100Gbps)
+  * Lower latency
+  * Less risk of congestion
+* It can take over 1 month to get a new Direct Connect connection set up as it required co-operation between both AWS and their partner.
+* In typical setups, the data travelling through the network is not encrypted - however it is in a provate network so the risk of data breaches is low.
+  * If extra security is needed, it is possible to set up a VPN for the connection between the customer's data centre and the partner, and then have the traffic from the partner to AWS also encrypted.
+* For increased resiliecy, it is possible to set up Direct Connect connections to multiple partners
+  * Therefore, if one partner goes down, the connectivity to AWS is maintained via the other partner location
+* For maximum resiliency, in addition to connecting to multiple locations, it is possible to have multiple Direct Connection connections per location.
+
+![AWS Direct Connect](../media/AwsDirectConnect.png)
 
 ## DNS
 * Instances in a VPC usually need to be able to resolve hostnames to IP addresses using a DNS server if they are to communicate to other systems (particularly public/external ones).
