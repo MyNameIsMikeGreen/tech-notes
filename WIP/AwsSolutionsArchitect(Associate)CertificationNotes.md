@@ -194,6 +194,8 @@ AWS Solutions Architect (Associate) Certification Notes
     * Large corporate networks
   * `172.16.0.0/12`
     * Represents the range `172.16.12.0` to `172.31.255.255`
+* The maximum size of a CIDR in AWS is `/16` (i.e. the number can be 16 or larger as a higher number means fewer available IP addresses)
+* IPv6 addresses can also (optionally) be used within AWS for services. However, IPv4 cannot be disabled.
 
 ## VPC (Virtual Private Cloud)
 * A VPC is a virtual private network.
@@ -211,6 +213,7 @@ AWS Solutions Architect (Associate) Certification Notes
 
 ### VPC Peering
 * VPC Peering connects two VPCs together so that they can communicate as if they were the same network.
+  * The whole network in each VPC is accessible to the other network. Not specific services/components.
 * To prevent address conflicts, the two VPCs that are peered must have non-overlapping CIDR ranges.
 * VPC Peering strictly only allow connecting together a pair of VPCs - a single VPC peering connection can only suppport the communication between the two defined VPCs to communicate across it.
   * Multiple VPC peering connections can be set up to allow a single VPC to communicate with other VPCs.
@@ -223,7 +226,17 @@ AWS Solutions Architect (Associate) Certification Notes
   * In the same region
   * In different regions
 
-## Routing Traffic to Private Subnets
+### PrivateLink
+* A method for exposing a service to many consumers without the need to peer networks or expose the service to the public internet.
+* Can be consumed from the customer's own AWS account or from other accounts.
+* The service being exposed must be connected to either a network load balancer or a gateway load balancer.
+* The consumer application must be connected to an ENI.
+* The AWS PrivateLink connection is made between the load balancer and the ENI to facilitate the communication.
+* For fault tolerance, both the load balancer and ENI should be in multiple AZs.
+* Once the link is created, AWS provides a URL endpoint that is then used by the consumer as the target for its requests.
+  * Requests to this URL will be fulfilled by the PrivateLink.
+
+### Routing Traffic to Private Subnets
 * Although a VPC can be divided into several subnets, it is possible to route traffic between them. A common use case for this is to implement a *bastion host*.
   * This is an EC2 instance in a public subnet (one which has internet access) which has SSH access to instances in a private subnet (one without internet access) so that the private instances can be controlled remotely.
   * For security, a bastion host and the EC2 instances it connects to must have strict security group rules in place (i.e. only allow port 22 access). Otherwise the private EC2 instances might as well be in the public subnet as the private subnet would be offering little security.
@@ -239,8 +252,13 @@ AWS Solutions Architect (Associate) Certification Notes
     * Unlike with NAT Instances, as they are simple EC2 instances, NAT Gateways do not require security groups to be set-up. AWS handles the security of communication itself.
     * Cannot be used to perform NAT on instances within the same subnet (although, you probably wouldn't need/want to anyway). The traffic must come from another subnet.
     * Is deployed to an AZ. So if there exists EC2 instances in different AZs, with the same use-case, they will require their own NAT Gateway, in their own AZ, in order to work - they cannot use the NAT Gateway from another AZ.
+* For IPv6-enabled instances in private subnets, it is possible to bypass public subnets and NAT gatways/instances for connecting to the internet securely by create an **Egress-Only Internet Gateway**.
+  * This networking services is a hybrid Internet Gateway and NAT Gateway for IPv6 instances only.
+  * It sits at the VPC-level and allows an IPv6 instance to connect to it directly to make IPv6 requests out to the public internet.
+  * It is not possible for the public internet to initiate requests to the instances.
+  * The reason we can connect directly to the Egress-Only Internet Gateway for IPv6 but cannot connect directly to an Internet Gateway for IPv4 is that the IPv4 address that an instance holds is a private address and the NAT Gateway is needed to re-write this for the public internet. However, IPv6 addresses, because there are so many of them, have no concept of private addresses. Therefore, the IPv6 address used by the private IPv6 instance is perfectly fine and addressable even on the public internet as it cannot clash.
 
-## VPC Endpoints
+### VPC Endpoints
 * AWS services (such as DynamoDB, S3, or SNS) all reside within AWS's network, but are accessible via the internet.
 * One way to access these services from a VPC is to communicate via the VPCs internet gateway and over the public internet.
   * If the subnet our application lives in is private, we will additionally also need to communicate via a NAT Gateway to get this traffic to the internet gateway.
@@ -260,8 +278,8 @@ AWS Solutions Architect (Associate) Certification Notes
     * Only supports S3 and DynamoDB.
     * AWS manages the entry in the route tables itself (The entry cannot be modified by the customer beynd adding/deleting it). They set it up in a way such that any traffic intended for the associated service will be routed to the gateway.
 
-## Connecting an External Network to a VPC
-### Over the Internet
+### Connecting an External Network to a VPC
+#### Over the Internet
 * Achieved by creating a *AWS Site-to-Site VPN*.
 * Involves creating a *Virtual Private Gateway* on the AWS VPC that you wish to connect to, and a *Customer Gateway* on the external network.
   * Virtual Private Gateway is an AWS networking service just like Internet Gateway or NAT Gateway, but this gateway specialises in handling traffic to/from external networks.
@@ -274,7 +292,7 @@ AWS Solutions Architect (Associate) Certification Notes
   * Utilised a hub-and-spoke pattern.
   * This feature is known as *AWS VPN CloudHub*.
 
-### Over a Dedicated Private Connection
+#### Over a Dedicated Private Connection
 * Achieved using Amazon Direct Connect (DX).
 * Involves communicating with AWS without ever going over the public internet.
 * Communication happens between an *AWS Direct Connect Location*. These are data centres (owned by third party partners), that have very fast direct physical links to AWS data centres.
@@ -299,7 +317,22 @@ AWS Solutions Architect (Associate) Certification Notes
 
 ![AWS Direct Connect](../media/AwsDirectConnect.png)
 
-## DNS
+### Transit Gateway
+* A networking service that allows many different networks (AWS VPCs and external) to talk to each other via a hub and spoke pattern - the Transit Gateway is the hub.
+* Is transitive; everything can talk to everything else
+  * Route tables are used to fine-tune this behavior.
+* Supports:
+  * VPCs
+  * DirectConnect connections
+  * Customer Gateway (AWS Site-to-Site VPNs)
+* Can work cross-region by peering transit gateways in seperate regions
+* Can work cross-account (Managed using Resource Access Manager)
+* Is the only AWS service to support *IP Multicast*
+* Multiple simultaneous AWS Site-to-Site VPN connections can be created for an external network to communicate to a Transit Gateway to increase throughput.
+  * Without Transit Gateway, an external network can only have at most 1 connection to the VPC it is interested in.
+  * Additionally, as the gateway acts as a hub to potentially many VPCs, there is no need to create a unique connection for each VPC if the external network was interested in multiple.
+
+### DNS
 * Instances in a VPC usually need to be able to resolve hostnames to IP addresses using a DNS server if they are to communicate to other systems (particularly public/external ones).
   * There are two options: use Route53, or host a custom DNS server within the VPC that the instances query.
   * To have access to Route53, we must enable the `enableDnsSupport` flag on the VPC.
@@ -308,7 +341,7 @@ AWS Solutions Architect (Associate) Certification Notes
 * It is possible to create a *Private Hosted Zone* in Route53 which contains DNS records for specific VPCs.
   * This enables you to give hostnames to instances in private instances and therefore other instances within the VPC can find the private instances via the hostname (via Route53) rather than needing to know its IP address.
 
-## NACLs (Network Access Control Lists)
+### NACLs (Network Access Control Lists)
 * A NACL is very similar to a security group. It acts like a firewall. However, unlike security groups, which act instances/services, NACLs operate on a subnet.
 * Each NACL contains 2 rule lists, one for inbound and one for outbound packets, specifying whether or not to allow the traffic depending on its protocol, IP source/destination, port, etc.
   * Works using a precedence mechanism. The lower the precedence number associates with an individual rule, the more important it is.
@@ -322,7 +355,7 @@ AWS Solutions Architect (Associate) Certification Notes
   * This therefore means that a server that some instance talks to may be required to talk to one of potentially thousands of possible ports and there is no way to know which one specifically ahead of time.
   * It is important to therefore, if ephemeral ports will be used by instances within a subnet, to ensure that the NACL rules allow traffic for the entire range of possible ports.
 
-### NACLs vs Security Groups
+#### NACLs vs Security Groups
 | NACLs                                                              | Security Groups                                                        |
 |--------------------------------------------------------------------|------------------------------------------------------------------------|
 | Applied to individual subnets                                      | Applied to individual instances                                        |
@@ -330,14 +363,14 @@ AWS Solutions Architect (Associate) Certification Notes
 | Stateless: Return traffic needs explicit permission                | Stateful: Return traffic automatically allowed                         |
 | Rules evaluated in priority order until a matching rule is reached | All rules are evaluated before deciding whether the request is allowed |
 
-## VPC Reachability Analyser
+### VPC Reachability Analyser
 * A tool provided by AWS to test whether or not traffic can flow between two endpoints within a VPC.
 * Produces a report explaining where/why traffic was blocked along the route if the transfer was unsuccessful.
   * It may detail problems with NACLs, security groups, route tables, etc.
 * It does not actually send packets through the VPC - it tests against an equivalent model of your VPC in its own environment.
 * A single test of connectivity between two endpoints is charged as a $0.10 flat fee.
 
-## VPC Flow Logs
+### VPC Flow Logs
 * Traffic moving to/from/through VPCs can be logged to S3 or CloudWatch.
 * Logs contain the following fields per record:
   * Version
@@ -361,6 +394,33 @@ AWS Solutions Architect (Associate) Certification Notes
   * ENI level
 * Included traffic to/from AWS-managed networking services too (e.g. Internet Gateway)
 * Can send to AWS Athena for complex querying
+
+### VPC Traffic Mirroring
+* This tool facilitates the copying of network packets to a new destination in-flight.
+* It is effectively a packet-capturing tool.
+* The original traffic is unaffected and unaware that it is being spied on.
+* The source, destination, and various other filtering attributes are defined to identify which packets should be captured.
+* Any packet that is captured/mirrored is sent to a desination of choice.
+  * e.g. we may send it to an EC2 instance which is running some traffic analysis software.
+
+## Networking Costs
+* Traffic within the same AZ is free
+* Traffic across AZs in the same region costs money per GB
+  * If the traffic stays within the AWS network (i.e. is using private IP addresses, not touching the public internet), the cost is half as much as if it goes outside of the AWS network (i.e. public IP addresses, on the public internet for some of the journey).
+* Traffic to a different region charges cost money per GB
+* Sending data into AWS is typically free
+* Sending data out of AWS typically costs
+
+# High-Performance Computing Networking
+* In distributed HPC systems, where multiple nodes need to transfer lots of data between each other very quickly, the network between them need to not be a bottleneck.
+* The most basic way of having an EC2-based HPC system perform with strong bandwidth is to initialise the instances in *Cluster* mode. This means that the EC2 instances will be located on the same physical server rack as each other.
+* A more advanced method is to utilise *EC2 Enhanced Networking*, also known as *SR-IOV*.
+  * This offers higher bandwidth (Up to 100 Gbps) and lower latency.
+  * This can be enabled by attaching an *Elastic Network Adapter (ENA)*. This provides the full 100 Gbps bandwidth.
+  * It can also be anabled by attaching an *Intel 89925 VF*. This provides up to 10 Gbps but is a legacy adapter.
+  * This works for any EC2 AMI.
+* For Linux AMIs, an *Elastic Fabric Adapter (EFA)* offers even more improved networking capabilities (particularly, lower latency).
+  * Utilises advanced message passing protocols implemented by Linux kernels.
 
 # STS (Security Token Service)
 * Responsible for finding out whether or not a user has the rights to access some AWS resource and returning a token for temporary access if it does.
@@ -435,6 +495,7 @@ AWS Solutions Architect (Associate) Certification Notes
   * Despite being within the AWS management console, to use EC2 Instance Connect, the instance must have the SSH port (22) allowed as an inbound rule on its security group.
 * Meta-data about an instance can be found on the instance itself by running `curl http://169.254.169.254/latest/metadata/`.
   * This includes information such as the current role the instance has assumed, it's IP addresses, and so on.
+* It is possible to download certain AMIs, such as "Amazon Linux 2" as files that work with virtual machine software. So you can export your EC2 instance, as an image, to run on-premise.
 
 ## Security Groups
 * A security group is similar to a firewall; it defines the network rules that allow traffic to flow into or out of EC2 instances.
@@ -649,6 +710,15 @@ AWS Solutions Architect (Associate) Certification Notes
 * Supports IAM.
 * Can be used with Route53 to provide a nice URL to reference the FTP server.
 
+## DataSync
+* A service to periodically synchronise data held in some volume/service into another.
+* Intended for the transfer of large amounts of data into AWS.
+* Can be used with on-premise or AWS-hosted storage systems.
+* Requires a *DataSync Agent* application which runs near to the source (On a server if on-premise, on an EC2 instance if in AWS).
+  * This agent is what reads from the volume and performs the communication with AWS's DataSync service.
+* Synchronisation can run daily, weekly, or monthly.
+* Storage instances will be out-of-sync between synchronisation jobs - it is not a continuous synchronisation service.
+
 # Scaling and Availability
 * Scalability can be:
   * Vertical - Increasing size of instance (giving it more power)
@@ -846,6 +916,16 @@ AWS Solutions Architect (Associate) Certification Notes
 * The standby database is not accessible directly. Only the main database can be written to or read from.
 * Read replicas can now be set up as Multi-AZ [TODO: check details].
 * Enabling Multi-AZ can be modified at runtime with no downtime.
+
+## Database Migration Service (DMS)
+* DMS is a tool provided by AWS to migrate data from one database to another database running elsewhere.
+* DMS runs on an EC2 instance.
+* Given a source database and a destination database, will copy the data from the source to the destination.
+* Can be used for both on-premise and AWS-hosted databases.
+* Supports many different database engines on either end of the transfer.
+* Supports migrating from one database engine to a completely different one (e.g. from Oracle to PostgreSQL)
+  * If migrating between database engines, also requires the use of the **AWS Schema Conversion Tool (SCT)** which defines how to translate the source schema into the destination schema when performing the transfer.
+  * SCT is not necessary if the engine is the same regardless of where is is hosted (e.g. An on-premise PostgreSQL database can migrate to an RDS PostgreSQL database without the need for SCT)
 
 ## Security
 
@@ -2204,3 +2284,67 @@ AWS Solutions Architect (Associate) Certification Notes
 * If enabled on a service (e.g. S3), Macie will search through the data held within it and attempt to identify whether or not any PII exists.
 * If Macie finds PII, it will notify EventBridge.
   * EventBridge integrations can then respond to the notification accordingly.
+
+# Disaster Recovery
+* Disaster recovery is the process of recovering from casatrophic errors in an IT system which causes business continuity or financial difficulties.
+* The effectivness of a DR strategy is measured primarily by:
+  * RPO (Recovery Point Objective) - The period of time before a disaster where data will be irretrievably lost
+  * RTO (Recovery Time Objective) - The period of time between a disaster happening and being fully operational again with data recovered
+  * Cost - Strategies with low RPOs and RTOs is typically expensive
+* The main strategies used by AWS customers include:
+  * Backup and restore
+    * The most basic DR strategy
+    * Typically the cheapest strategy
+    * Involved taking repeated backups/snapshots of systems so that they can be recovered from if a disaster occurs
+    * The RPO depends on how frequently the backups are taken - however there is almost certainly always going to be some data lost
+    * The RTO can be very long depending on the size of the data sets
+  * Pilot Light
+    * Maintaining a small instance of the most highly critical infrastructure/services at all times as a failover
+    * Auxillary services can be brought up slowly, but there is always capacity to perform the most business-critical tasks using the pilow light instances
+    * e.g. We may keep a replicated copy of the database in AWS, which is fully in-sync with the on-premise database. But it may not have any associated EC2 instances to perform business logic.
+  * Warm Standby
+    * Similar to a pilot light strategy, but all of the infrastructure and services are included in the minimally-scaled standby
+    * All business actions can continue on failover, but the throughput may be reduced until it can be scaled up
+    * e.g. As above, but the standby also has a small EC2 instance too.
+  * Hot/Multi Site
+    * A fully scaled copy of the system is available at all times in additional the primary
+    * The replica can handle day-to-day traffic as well as taking on the full load if the primary instance goes down
+    * Very expensive as each copy of the system should be large enough to stand on their own - so, assuming no disasters, the cost is at least double what the business would actually need from a utilisation perspective.
+
+## AWS Backup
+* A central service for managing backup policies for various AWS services that have backup/snapshot functionalities.
+* Instead of navigating through the interfaces of many different AWS services to configure their respective backup capabilities one-by-one. This service offers a unified interface to achieve the same thing from one interface.
+* Backups are stored in S3.
+* Offers the ability to create backup plans. Plans define:
+  * Which services to run backups for
+  * When to back up
+  * When to send backups to Glacier (if ever)
+  * How long to keep backups for
+* Supports running plans on-demand too.
+
+# CI/CD
+* AWS offers many AWS-native counterparts to traditional CI/CD solutions. These include:
+  * CodeCommit
+    * Source control service
+    * Equivalent ot GitHub
+  * CodeBuild
+    * CI service
+    * Equivalent to Jenkins
+  * CodeDeploy
+    * Deploys artifacts to AWS and non-AWS compute services
+  * ElasticBeanstalk
+    * Instance deployment platform
+    * Equivalent to Kubernetes
+  * Code Pipeline
+    * Orchestration/automation of all of the above AWS-native CI/CD services
+
+# CloudFormation
+* AWS-native equivalent of Terraform.
+* Infrastructure-as-code service.
+* Declaratively define which AWS services are needed and how they should interact at at infrastructure level.
+* Defined in YAML files.
+  * Each file is known as a *Stack*.
+* Can be parameterised and contain conditional statements for flexibility and re-use.
+* The AWS web console included a GUI for graphically generating CloudFormation files.
+* To deploy the same stack across multiple accounts or regions, we can create a *StackSet*.
+  * This grants a trusted account to execute a stack in multiple places without needed to customise the stack file and jump into each account/region to apply it individually.
