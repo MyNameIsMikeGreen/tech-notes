@@ -34,7 +34,7 @@ AWS Solutions Architect (Associate) Certification Notes
 * The likelihood of all AZs in a region (and thus the entire region) going down is very low.
 
 ## Points of Presence (Edge Locations)
-* TO-DO
+* In many cities around the world, AWS operates Points of Presence. These are local entry points into the AWS network and utilised by CloudFront and Lambda@Edge to reduce the latency that would otherwise be introduced if the user were to use more of the public internet to reach AZ data centres directly.
 
 # Organisations
 * A single company does not necessarily have a single AWS account.
@@ -516,7 +516,7 @@ AWS Solutions Architect (Associate) Certification Notes
     * These are instances that we purchase for a specified amount of time (1 or 3 years).
     * Because this commitement has been made, AWS offers a discount.
   * Convertable Reserved Instances
-    * Reserved instances where the instance type can be changed at-will.
+    * Reserved instances where the instance type can be changed at-will. However, by providing this ability, AWS charges more.
   * Scheduled Reserved Instances
     * Reserved instances which are available on a regular schedule (e.g. Every day from 5pm to 7pm).
   * Spot Instances
@@ -527,7 +527,10 @@ AWS Solutions Architect (Associate) Certification Notes
     * The request for a spot instance can be persistent (keep the request open until some submitted expiry) or one-time (if the instance is ever terminated because it exceeded the max price threshold, don't ever bring it up again).
     * If multiple spot-instances are required for a task, a **Spot Fleet** can be set-up.
       * A Spot Fleet is a specification for the set of spot instances (and optionally also on-demand instances) that are desired as well as the budget.
-      * TO-DO: Understand this more
+      * AWS will determine the best mix of instances to meet the targets set in the spot fleet request and launch the appropriate instances.
+      * A spot fleet can either be one-off (*request*) or persistent (*maintain*).
+        * With a *request* type, instances are launched to meet the criteria, but no effort is made to AWS to keep this satisfied afterwards. If instances are terminated, nothing will automatically bring replacements back up to meet the same service level.
+        * With a *maintain* type, instances are launched to meet the criteria, and AWS constantly monitors the state of the fleet to ensure it always meets the criteria specified. If instances are terminated, AWS will provision more to get the capacity back up to the desired level.
   * Dedicated Host
     * Renting a *specific* physical server for instances for 3 years at a time.
     * Expensive.
@@ -1470,12 +1473,13 @@ AWS Solutions Architect (Associate) Certification Notes
 # CloudFront
 * Content delivery network (CDN).
 * In CloudFront terms, "origin" refers to the service/platform serving the content that CloudFront is delivering to the user (e.g. an S3 bucket).
-* Caches content from sources in AWS and serves them from edge-locations close to the user.
-  * On the first request for a resource, the edge location will request the data from the origin. It will then save this in it's local cache.
+  * An origin can either be in AWS or outside of it.
+* Caches content from origins and serves them from edge-locations close to the user.
+  * On the first request for a resource, the edge location will request the data from the origin. It will then save this in its local cache.
   * On subsequent identical requests, instead of going to the origin, it will serve the content from its local cache.
   * Cache items have a TTL.
 * Low latency read operations.
-* More edge-location than there are regions so is more fine-grained to an individual user's location and can likely provide better latency than if the content is simply replicated across regions.
+* More edge-locations than there are regions so is more fine-grained to an individual user's location and can likely provide better latency than if the content is simply replicated across regions.
 * Supports the following origins:
   * S3 Buckets
     * CloudFront can also be used as an ingress to the bucket to upload files
@@ -1926,6 +1930,15 @@ AWS Solutions Architect (Associate) Certification Notes
   * For instance, if the Lambda function is written to validate requests for obviously-bad structures, it can return an error response early to the caller without burdening the server.
 * Lambda usually runs in a specific region, but with Lambda@Edge, the Lambda will run wherever the edge node is.
 
+## Step Functions
+* Lambda function orchestration
+* Visually graph the relationships between different Lambda functions to create a workflow
+  * Stored as a JSON state machine
+* Each workflow can run for up to 1 year on each execution
+* It is possible to have a step for human approval during the workflow
+* A similar service called **Simple Workflow Service (SWF)** exists which performs similar orchestration but for EC2 instances
+  * This is largely obsolete
+
 # API Gateway
 * Serverless, fully-managed, service for exposing a web API that will call out to other services on the user's behalf
   * It is effectively a managed web controller layer
@@ -2348,3 +2361,116 @@ AWS Solutions Architect (Associate) Certification Notes
 * The AWS web console included a GUI for graphically generating CloudFormation files.
 * To deploy the same stack across multiple accounts or regions, we can create a *StackSet*.
   * This grants a trusted account to execute a stack in multiple places without needed to customise the stack file and jump into each account/region to apply it individually.
+
+# Elastic MapReduce (EMR)
+* Service for provisioning big data clusters
+* Handles the creation and configuration of instances that meet the parameters set for cost and performance
+  * The cluster can be comprised of hundreds of EC2 instances running big data software (e.g. Apache Spark, Apache Hadoop)
+
+# OpsWorks
+* AWS-managed Chef and Puppet configuration tools
+  * Similar to Ansible
+* Perform server configuration or execute repetetive tasks automatically
+* Configuration as code
+
+# AWS WorkSpaces
+* Managed virtual desktop
+* Replaces the need for on-premise Virtual Desktop Interfaces (VDIs)
+* Charged based on usage (i.e. charged by the hour)
+* Integration with Microsoft AD
+* Staff have access to the same Windows or Linux environment from any machine with internet access
+* Connection is encrypted
+
+# AWS AppSync
+* AWS-managed GraphQL server
+* Data sourced from various backend services and exposed by AppSync as a GraphQL API that clinets can connect to
+  * Databased (e.g. DynamoDB)
+  * Lamdba
+  * EC2 backend servers
+* Commonly used to synchronise data between mobile and web applications
+* Also provides WebSocket support to push updates to many clients at once
+
+# Cost Explorer
+* An interface in the AWS console that provides reports about costs incurred in AWS accounts
+* Can select specific services or specific instances to see how much they are costing over time
+* Granularity of down to an hour precision
+* Supports forcasting of costs based on past usage
+* Generated savings plans to suggest ways to lower an AWS bill based on usage
+* The cost of Cost Explorer is based on the amount of datapoints being analysed in a report
+  * e.g. Analysing every hour over the course of 5 years will be more expensive than looking at the daily total over the course of 1 month.
+
+# Trusted Advisor
+* An account assessment service which analyses several aspects to provide recommendations on AWS usage:
+  * Cost optimisation
+  * Security
+  * Performance
+  * Fault tolerance
+  * Service limits
+* The basic checks are available to all customers
+* Only customers with the business or enterprise support plans can access the full suite of tests
+* Can fire CloudWatch alerts if a violation is detected
+* Can enable weekly update emails
+
+# AWS Well-Architected Framework
+* Comprises 6 pillars defining the principles necessary for the design of good cloud architectures.
+* A well-designed architecture should meet the requirements of all pillars.
+* AWS provides their *Well-Architected Tool* which is a questionaire regarding the usage of AWS and generated reports related to what is lacking with respect to the framework's principles.
+
+## Operational Excellence Pillar
+* Goals:
+  * Run systems that provide business value
+  * Monitor those systems
+  * Continuously improve
+* To achieve this:
+  * Use "___ as code" (Configuration, Infrastructure, etc...)
+  * Automate documentation creation
+  * Make frequent, small, reversible changes (agile)
+  * Refine/improve "ways of doing things" frequently
+  * Anticipate failures to plan how to recover from them
+  * Learn from failures to understand how to better anticipate them next time
+
+# Security Pillar
+* Goal: Protect information, systems, and assets without impacting business value.
+* To achieve this:
+  * Implement strong identity/permission management
+  * Monitor for unusual activity and automatically alert if suspicious
+  * Enable security procedures at each step through the architecture
+    * e.g. At the load balancer, at the EC2 instance, and in the application
+    * If one fails, there is a chance the security at other layers will catch it
+  * Protect data both at rest and in-flight
+  * Limit manual interactions with raw data (i.e. automate it away)
+  * Perform dry-runs of catastrophic security events to understand how to handle the situation
+
+## Reliability Pillar
+* Goals:
+  * Automatically handle changes in demand (i.e. scale)
+  * Recover from infrastructure disruptions/outages
+* To achieve this:
+  * Test/simulate possible/past failures
+  * Scale horizontally - the system should neither be over or under provisioned
+  * Maintains backups so that we can recover (at least partially) from a catastrophic failure
+
+## Performance Efficiency Pillar
+* Goal: Monitor and utilise new technology as it is released
+* To achieve this:
+  * Have the ability to go globally live within minutes (Use automated releases and infrastructure as code rather than manual processes)
+  * Utilise serverless technologies (So that time isn't spent on configuration of servers)
+  * Keep up-to-date with AWS's offerings
+
+## Cost Optimization Pillar
+* Goal: Run a system that provides the desired business value but at the lowest cost
+* To achieve this:
+  * Auto-scale
+  * Use services that charge based on what you use (Avoid services that have flat fees if it sits unused most of the time)
+  * Monitor/measure usage/utilisation
+  * Eliminate the use of on-premise infrastructure and data centres
+
+## Sustainability Pillar
+* Goal: Maximise the sustainability of your systems both at present and in the future
+* To achieve this:
+  * Consider whether your system will continue to be sustainable several years down the line
+  * Consider how to minimise the sustainability impact of the users of your service (e.g. ensure that your consumers do not need to buy new hardware to use your services)
+  * Maximise the utilisation of your existing assets before aquiring new assets (1 server running at 80% utilisation is more sustainable than 4 running at 20%).
+  * Use managed services - doing so means the cloud provider can more efficiently allocate resources across their entire customer base whilst providing the same level of service
+  * Opt to run systems in locations with a greater sustainability potential (e.g. AWS data centres in one region may have a better environmental committment, perhaps due to local government legislation, than another)
+  * Architect systems in a way that they have smooth and consistent load - this can be acheived by asynchronous processing and queueing of work items - scaling up and down frequently means that there will inevitably be periods of time where the system is over-provisioned.
