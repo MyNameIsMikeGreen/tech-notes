@@ -2,9 +2,9 @@ AWS Solutions Architect (Associate) Certification Notes
 =======================================================
 
 # What is AWS?
-* AWS, Amazon Web Services, is a Cloud Provider.
+* AWS, Amazon Web Services, is a cloud provider.
 * It provides servers and services for on-demand computing.
-* In contrast to traditional on-premesis IT, where computation power must be known ahead of time and is more or less fixed, cloud providers support scaling up/down on-demand.
+* In contrast to traditional on-premises IT, where computation power must be known ahead of time and is more or less fixed, cloud providers support scaling up/down on-demand.
 * Common high-level use-cases include:
   * Data storage and backups
   * Web hosting
@@ -17,10 +17,10 @@ AWS Solutions Architect (Associate) Certification Notes
 * AWS is split up into several physical locations across the world.
 * For the most part, a customer will pick one specific region and their entire AWS system will live within this region.
   * The exception to this is the small set of global services.
-* Regions differ in the services thet offer and how much they charge for each service.
+* Regions differ in the services they offer and how much they charge for each service.
 * Analogy: McDonalds (AWS) is a brand, but to operate in different countries, the operation is often structured as a new subsidury company (AWS Region) that is specific to the country that it operates in (for example, in the UK, "McDonald’s Restaurants Limited"). Customers only ever deal with this local company. The global brand will have influence on what each subsidury offers, but the offerings across countries will often not be identical.
 * When choosing a region, several factors must be considered:
-  * Regulatory compliance - Some countries may have restrictions on where data can be transferred to or held (GDPR).
+  * Regulatory compliance - Some countries may have restrictions on where data can be transferred to or held (e.g. GDPR).
   * Proximity - AWS servers physically near to customers will generally have a lower latency and thus provide a better experience.
   * Pricing
   * Available services
@@ -30,7 +30,7 @@ AWS Solutions Architect (Associate) Certification Notes
 * An AZ is some cluster of physical data centres that are physically independent from others.
 * If one AZ goes down because of some issue (e.g. fire), in theory the other AZs will remain available.
 * AZs are connected via a high-bandwidth, low-latency network connection.
-* AZs are typically used for data replication. Copies of data will be sent across the high speed network connection to be in-sync with the original, and if the original AZ goes down the data is still available in another AZ.
+* AZs are often used for data replication. Copies of data will be sent across the high speed network connection to be in-sync with the original, and if the original AZ goes down the data is still available in another AZ.
 * The likelihood of all AZs in a region (and thus the entire region) going down is very low.
 
 ## Points of Presence (Edge Locations)
@@ -46,24 +46,27 @@ AWS Solutions Architect (Associate) Certification Notes
   * Regulatory restrictions
 * If using an organisation, the fees for AWS services across each of the member accounts can be aggregated and, as such, paid for using a single payment method.
   * Aggregation is also applied for volume pricing, therefore the total cost across all accounts is likely to reduce when grouped within an organisation as the per-unit cost of services is reduced.
-    * e.g. If some service charges £2 for 0-10 units and £1 for 11-20 units, 2 accounts individually that used 10 units would be more expensive than an organisation containing these accounts as collectively they would enter the 11-20 unit category.
+    * e.g. If some service charges £2 for 0-10 units and £1 for 11-20 units, 2 accounts individually that used 10 units would be more expensive than an organisation containing these accounts as collectively they would enter the 11-20 unit category for half of their collective requests.
 * Accounts can be sub-divided further by grouping within *Organisational Units (OUs)*
-  * You can have as many OUs as you wish and OUs can contains other OUs.
+  * You can have as many OUs as you wish and OUs can contain other OUs.
   * The arrangement of OUs is completely up to whatever architecture is desired by the company and makes sense for their admin purposes.
   * e.g. a company may have a main OU encomparing everything, then several OUs within it for departments, and within each department OU it may have further OUs for individual projects, and the project OUs will contain multiple accounts representing each environment.
-* It is possible to restrict access to certain AWS services as the OU level using *Service Control Policies (SCPs)*
+* It is possible to restrict access to certain AWS services at the OU level using *Service Control Policies (SCPs)*
   * An SCP lists which IAM actions a user within an OU can or cannot use.
     * Not even the admin users within an account may access an action if the action is blacklisted in the SCP.
   * SCPs applied to the parent OU will cascade down to the child OUs.
-  * The master account in the root OU is unaffected by any SCP, it can do anything it wants at all times.
+  * The main account in the root OU is unaffected by any SCP, it can do anything it wants at all times.
   * SCPs can be especially helpful in applying a blanket ban within an account to services that are not compliant with some regulation that needs to be followed.
   * Deny policies take precedence over Allow policies, therefore, if an OU has inherited similar policies from its parents, one being a Deny and one being an Allow, the Deny will apply.
 * To migrate accounts from one OU to another, the account must first be removed from the OU to which it belongs, and then it must be invited to the new OU.
-  * If migration the master account within an OU, all member accounts must be migrated away from the OU first.
+  * If migrating the master account within an OU, all member accounts must be migrated away from the OU first.
 
 # User and Permission Management
 ## IAM (Identity and Access Management)
 * Global service - Settings span all regions
+* Manages who/what is allowed to perform which actions in an AWS account.
+
+### IAM Users
 * An AWS account is viewed/modified by users. IAM specifies these users and what permissions they hold.
 * An AWS account has a root user created when the account is set up. This user has unrestricted access to everything in the account and should generally only be used for creation of other, less privilidged, users.
 * Users can be grouped into some logical collection which share the same permissions.
@@ -71,16 +74,21 @@ AWS Solutions Architect (Associate) Certification Notes
   * e.g. a "Developer" group, or a "Managers" group.
   * Groups cannot contain other groups, they only contain users.
   * A user does not *have* to belong to a group, they can just be "floating". However this is not best-practice.
+
+### IAM Roles
 * A running application is not a physical person, however it may need to interact with AWS just like a user would. Instead of creating an IAM User for it (and thus breaking the concept that IAM Users are representations of physical people), we create IAM Roles and have the application assume it.
-  * An IAM Role has a collection of permissions attached to it just like a user or group would.
-  * Assuming a role is a temporary action.
-  * Unlike a user, a role does not have a set of credentials to "log in" to.
-  * Examples of entites that may assume a role:
-    * AWS services like EC2 or Lambda instances
-    * Users in another AWS account that you wish to grant permission to access items in your account.
+* An IAM Role has a collection of permissions attached to it just like a user or group would.
+* Assuming a role is a temporary action.
+* Unlike a user, a role does not have a set of credentials to "log in" to.
+  * Instead, once something has assumed a role, IAM provides it with a set of temporary credentials that last for the finite lifetime of the session.
+* Any entity which requires temporary access to AWS resources can assume roles including:
+  * Applications
+  * IAM users
+    * We may wish to grant users from other AWS accounts access to our services by letting them assume one of our roles
+  * AWS services like EC2 or Lambda instances
 
 ### IAM Policies
-* A user (or a group) can be granted permissions by providing it with an IAM Policy.
+* A user (or a group) can be granted permissions by attaching an IAM Policy.
 * An IAM Policy is a JSON document with the following structure:
   * ```json
     {
@@ -103,22 +111,22 @@ AWS Solutions Architect (Associate) Certification Notes
   * The above defines that some user/group shall be permitted to attach volumes in EC2, create tags in EC2, and perform any list action in IAM.
 * There exists an AWS security principle known as the *Least Privilidge Principle* which recommends that a user should be granted the lowest privilidges possible to accomplish their job. This limits risk from accidents or malicious activity.
 * There are 3 types of policy:
-  * **AWS Managed Policies**: AWS provides a number of pre-defined generic policies that they update themselves for common use-cases (such as read access to a specific service). These policies can then be attached to an IAM user.
-  * **User-Managed Policies**: As above, but instead the customer creates their own re-usable policies to attach to one or more IAM users.
+  * **AWS Managed Policies**: AWS provides a number of pre-defined generic policies that they update themselves for common use-cases (such as read access to a specific service).
+  * **User-Managed Policies**: As above, but instead the customer creates their own re-usable policies.
   * **Inline Policies**: A policy is embedded in a specific IAM user. This policy is not re-usable and applies only to the user that it is defined within. It is a one-to-one relationship between user and policy.
 * Keys/Terms:
-  * Version - Policy language version
-  * Id - Optional name to reference the policy
-  * Statement - A single rule within the policy
-  * Effect - `Allow` or `Deny`
-  * Action - The privilidge to be allowed or denied
-  * Principal - An account/user/role to apply the policy to
-  * Resource - The soecific resource this policy applies to (e.g. a specific S3 bucket)
-  * Condition - Additional custom condition to evaluate to decide whether the policy should be applied.
+  * `Version` - Policy language version
+  * `Id` - Optional name to reference the policy
+  * `Statement` - A single rule within the policy
+  * `Effect` - `Allow` or `Deny`
+  * `Action` - The privilidge to be allowed or denied
+  * `Principal` - The person/application making the request
+  * `Resource` - The specific resource this policy applies to (e.g. a specific S3 bucket)
+  * `Condition` - Additional custom condition to evaluate to decide whether the policy should be applied.
     * `NotIpAddress` - Apply if the client's IP address is not one of the ones within the condition values
     * `RequestedRegion` - Apply if the region being requested matches one of the ones within the condition values
     * Various other including checking the values of tags on AWS resources and checking whether the user is currently authenticated via MFA
-* There exists a tool called the "IAM Policy Simulator" which tests whetehr or not, for a given user, role, or policy, a specific action is permitted.
+* There exists a tool called the **IAM Policy Simulator** which tests whether or not, for a given user, role, or policy, a specific action is permitted.
 
 ### Permission Boundaries
 * A permission boundary is an IAM policy applied to a user or a role (not a group) that defines the maximum set of permissions this user/group can ever be granted.
@@ -162,7 +170,7 @@ AWS Solutions Architect (Associate) Certification Notes
 * Can be thought of as a database of users.
   * Each user will have a username/email and password
   * We may also have 2FA set up for the user
-* CUP is exlcusively used for authentication (i.e. to prove who you are, it doesn't necessarily provide authorisation).
+* CUP is exclusively used for authentication (i.e. to prove who you are, it doesn't necessarily provide authorisation).
 * The user will log in to CUP by sending their login details. In return, CUP will return a JWT token for the user to use in subsequent requests.
 * Has integration with other identity providers (Google, Facebook, SAML, etc) so that their credentials can be used to log in to Cognito and Cognito will return a JWT token as it would if it was a "vanilla-Cognito" login.
 * Primarily used to authenticate communication with API Gateway.
@@ -442,13 +450,13 @@ AWS Solutions Architect (Associate) Certification Notes
     * Permission groups
     * File shares
   * For user management, many organisations have a local AD server on their network that is used to authenticate users logging into one of the many client machines also on the network. It means that anybody's credentials will work on any of the organisation's machines.
-* A trust-connection can be established with an existing on-premesis AD server.
-  * Any requests for authentication will be checked against the databases in both the on-premesis and hosted versions of AD. If it exists in either, the request is approved.
-* The service can be configured in such a way that it manages no data itself, but instead simply acts as a proxy for an on-premesis AD server.
+* A trust-connection can be established with an existing on-premises AD server.
+  * Any requests for authentication will be checked against the databases in both the on-premises and hosted versions of AD. If it exists in either, the request is approved.
+* The service can be configured in such a way that it manages no data itself, but instead simply acts as a proxy for an on-premises AD server.
   * This is known as *AD Connector*
 * A simplified version of Microsoft AD is also available on AWS, called *Simple AD*.
   * It offers a subset of features of the full AWS Active Directory offering.
-  * In this setup, only a hosted version of AD exists, no on-premesis counterpart.
+  * In this setup, only a hosted version of AD exists, no on-premises counterpart.
   * Instead of being a hosted Microsoft AD, it is actually a hosted Samba AD, this follows many of the same protocols, but is not feature-complete.
 
 # AWS SSO
@@ -2429,7 +2437,7 @@ AWS Solutions Architect (Associate) Certification Notes
   * Anticipate failures to plan how to recover from them
   * Learn from failures to understand how to better anticipate them next time
 
-# Security Pillar
+## Security Pillar
 * Goal: Protect information, systems, and assets without impacting business value.
 * To achieve this:
   * Implement strong identity/permission management
