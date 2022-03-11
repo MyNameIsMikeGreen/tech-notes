@@ -831,7 +831,7 @@ AWS Solutions Architect (Associate) Certification Notes
 * Does not support Server Name Indication (SNI).
 
 ### Application Load Balancer (ALB)
-* OSI layer 7 (application): HTTP, HTTPS, WebSocket
+* OSI layer 7 (Application): HTTP, HTTPS, WebSocket
 * Supports redirection (For instance, from HTTP to HTTPS)
 * Supports routing tables to build rules to route to specific target groups based on various criteria
   * Path
@@ -852,7 +852,7 @@ AWS Solutions Architect (Associate) Certification Notes
 * Supports Server Name Indication (SNI).
 
 ### Network Load Balancer (NLB)
-* OSI layer 4 (transport): TCP, TLS, UDP
+* OSI layer 4 (Transport): TCP, TLS, UDP
 * Much more performant than an ALB as it is working at a lower level
   * ~100ms latency
   * Millions of requests per second
@@ -864,8 +864,12 @@ AWS Solutions Architect (Associate) Certification Notes
 * Supports Server Name Indication (SNI).
 
 ### Gateway Load Balancer
-* TODO
-* Beyond scope of exam?
+* OSI layer 3 (Network): IP
+* Used if we wish all traffic to a specific destination to be sent via some other system for the purposes of processing the traffic first.
+* Is typically used by firewalls, intrusion detection, or packet manipulation systems.
+* The Gateway Load Balancer will accept all traffic for the destination regardless of protocol or port (as it operates at the low network level) and forward these packets on to the target group.
+  * If there are multiple instances in the target group, the load balancer will distribute the traffic amongst them as any other load balancer would.
+* The communication between the load balancer and the intercepting instance uses the *GENEVE* protocol on port `6081`. The instance traffic is forwarded to should be one which understands this protocol.
 
 # Relational Database Service (RDS)
 * Managed database service for databases using SQL as a query language
