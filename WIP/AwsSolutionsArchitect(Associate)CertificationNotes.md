@@ -2441,12 +2441,13 @@ AWS Solutions Architect (Associate) Certification Notes
 * Goal: Protect information, systems, and assets without impacting business value.
 * To achieve this:
   * Implement strong identity/permission management
+    * Use the principle of least privilidge
   * Monitor for unusual activity and automatically alert if suspicious
   * Enable security procedures at each step through the architecture
     * e.g. At the load balancer, at the EC2 instance, and in the application
     * If one fails, there is a chance the security at other layers will catch it
-  * Protect data both at rest and in-flight
-  * Limit manual interactions with raw data (i.e. automate it away)
+  * Protect data both at-rest and in-flight
+  * Limit human-interaction with raw data (i.e. automate it away)
   * Perform dry-runs of catastrophic security events to understand how to handle the situation
 
 ## Reliability Pillar
@@ -2455,15 +2456,19 @@ AWS Solutions Architect (Associate) Certification Notes
   * Recover from infrastructure disruptions/outages
 * To achieve this:
   * Test/simulate possible/past failures
-  * Scale horizontally - the system should neither be over or under provisioned
+  * Scale horizontally rather than vertically - no single instance should become a big risk if it failed
   * Maintains backups so that we can recover (at least partially) from a catastrophic failure
+  * Implement ways to automatically recovery from failure or respond KPIs indicating imminent failure
+  * Automate changes - human's making changes themselves risk inconsistency, unknown behaviour, and mistakes
 
 ## Performance Efficiency Pillar
-* Goal: Monitor and utilise new technology as it is released
+* Goal: Use the best tools currently available to meet your goal
 * To achieve this:
-  * Have the ability to go globally live within minutes (Use automated releases and infrastructure as code rather than manual processes)
+  * Use automated releases and infrastructure as code rather than manual processes so that systems can be released within minutes and rapid experimentation is possible
   * Utilise serverless technologies (So that time isn't spent on configuration of servers)
-  * Keep up-to-date with AWS's offerings
+  * Keep up-to-date with AWS's offerings and use new tools if they are better suited to your needs
+    * Experiment with them frequently
+  * Have "Mechanical sympathy" (i.e. have a broad understanding of how the services being used work so that they can be best leveraged to achieve the goal)
 
 ## Cost Optimization Pillar
 * Goal: Run a system that provides the desired business value but at the lowest cost
@@ -2472,6 +2477,7 @@ AWS Solutions Architect (Associate) Certification Notes
   * Use services that charge based on what you use (Avoid services that have flat fees if it sits unused most of the time)
   * Monitor/measure usage/utilisation
   * Eliminate the use of on-premise infrastructure and data centres
+  * Tag resources so the cost of related instances can be assessed collectively
 
 ## Sustainability Pillar
 * Goal: Maximise the sustainability of your systems both at present and in the future
