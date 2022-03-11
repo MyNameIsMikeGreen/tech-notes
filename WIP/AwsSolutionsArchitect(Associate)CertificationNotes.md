@@ -1606,7 +1606,7 @@ AWS Solutions Architect (Associate) Certification Notes
 * Facilitates the **Hybrid Cloud** paradigm by making AWS storage more accessible on-premise.
   * Part of the infrastructure is in the cloud.
   * Part of the infrastructure is local/on-premise.
-  * May be preferred in order to meet regulartory/legal obligations, increase security, or improve networking (transfer speed/quantity).
+  * May be preferred in order to meet regulatory/legal obligations, increase security, or improve networking (transfer speed/quantity).
 * Exposes AWS storage services to a local network without the need for SDKs or AWS-specific application integrations.
 * Works by having a gateway application running locally on the customer's network to act as a bridge between the customer's applications/servers/clients and AWS.
   * It handles all communication with AWS and exposes it generically so that the rest of the system does not need to know/care about AWS at all.
@@ -1619,7 +1619,7 @@ AWS Solutions Architect (Associate) Certification Notes
 ![File Gateway](../media/FileGateway.png)
 
 * Exposes S3 buckets as a NFS/SMB networking file share.
-* Also acts as a cache of recently objects so that it is not necessary to query AWS for them each time.
+* Also acts as a cache of recently accessed objects so that it is not necessary to query AWS for them each time.
 * Has optional Active Directory (AD) integration for user authentication.
 * Supports a subset of S3 bucket types:
   * S3 Standard
@@ -1644,10 +1644,14 @@ AWS Solutions Architect (Associate) Certification Notes
 
 ![Tape Gateway](../media/TapeGateway.png)
 
-* As with Volume Gateway, exposes S3 iSCSI protocol.
+* As with Volume Gateway, exposes S3 using the iSCSI protocol.
 * The primary difference between this and other offerings is that it is intended to be used with popular tape backup applications.
   * Most of the leading tape backup provioders have added Tape Gateway integrations into their products.
 * Will store backups as virtual tapes in S3, and later in S3 Glacier.
+
+## FSx File Gateway
+* Exposes *FSx for Windows* file systems hosted on AWS to a local network.
+* Has file cacheing to significantly increase performance.
 
 # Messaging/Queues
 * Using messaging/event-driven systems as middleware between two services introduces opportunity to utilise asynchronous communication.
