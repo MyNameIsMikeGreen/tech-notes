@@ -1680,6 +1680,11 @@ AWS Solutions Architect (Associate) Certification Notes
     * The counter indicates that a consumer has seen this message multiple times but never confirmed successful processing by deleting it, so it must be bad.
 * We can configure a delay between a message being recieved by a queue and it being visible to consumers.
   * This can be configured as a default at queue level or in the parameters of individual messages.
+* Supports *Long-Polling*
+  * A long poll is a request for messages by a consumer that has a relatively long timeout. If the queue was empty when the consumer calls the API, but a message arrives during that poll period, the consumer will receive it.
+  * A single long-poll is supported up to 20 seconds.
+  * The total number of API calls made by the consumers is typically reduced over a long timeframe if using long polling.
+  * Latency between a queue appearing on the queue and making its was to a consumer is reduced as there is no long time between it arriving and the next (non-long) poll coming around.
 
 ### Request-Response Queue Pattern
 
