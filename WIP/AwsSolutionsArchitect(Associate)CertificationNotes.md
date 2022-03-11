@@ -929,7 +929,6 @@ AWS Solutions Architect (Associate) Certification Notes
   * If writing to the backup database fails, the entire transaction fails.
   * The backup database is therefore a perfect clone of the main database.
 * The standby database is not accessible directly. Only the main database can be written to or read from.
-* Read replicas can now be set up as Multi-AZ [TODO: check details].
 * Enabling Multi-AZ can be modified at runtime with no downtime.
 
 ## Database Migration Service (DMS)
