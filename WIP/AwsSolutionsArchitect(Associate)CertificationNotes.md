@@ -235,7 +235,7 @@ AWS Solutions Architect (Associate) Certification Notes
   * In different regions
 
 ### PrivateLink
-* A method for exposing a service to many consumers without the need to peer networks or expose the service to the public internet.
+* A method for exposing a service (e.g. an EC2 instance) inside a VPC to many consumers without the need to peer networks or expose the service to the public internet.
 * Can be consumed from the customer's own AWS account or from other accounts.
 * The service being exposed must be connected to either a network load balancer or a gateway load balancer.
 * The consumer application must be connected to an ENI.
@@ -281,10 +281,12 @@ AWS Solutions Architect (Associate) Certification Notes
     * Supports almost all AWS services.
   * Gateway Endpoints
     * Operate similarly to other gateways in VPC networking.
-    * The gate way is responsble for handling the communication to a different location if the VPC is able to route traffic to it.
+    * The gateway is responsble for handling the communication to a different location if the VPC is able to route traffic to it.
     * Requires changes to the subnet's route tables to ensure that traffic intended for the gateway is routed to the gateway.
     * Only supports S3 and DynamoDB.
-    * AWS manages the entry in the route tables itself (The entry cannot be modified by the customer beynd adding/deleting it). They set it up in a way such that any traffic intended for the associated service will be routed to the gateway.
+    * AWS manages the entry in the route tables itself (The entry cannot be modified by the customer beyond adding/deleting it). They set it up in a way such that any traffic intended for the associated service will be routed to the gateway.
+* VPC Endpoints are powered by AWS PrivateLine
+  * It provides similar behaviour as PrivateLink for customer-managed services, it simply act to improve access to AWS-managed services instead.
 
 ### Connecting an External Network to a VPC
 #### Over the Internet
@@ -297,17 +299,20 @@ AWS Solutions Architect (Associate) Certification Notes
 * Requires *Route Propagation* to be set up in the VPC's route table.
 * A single Virtual Private Gateway for a VPC can be used to communicate with multiple external networks at once.
   * These networks can also communicate with each other through the Virtual Private Gateway (i.e., it is transitive).
-  * Utilised a hub-and-spoke pattern.
+  * Utilises a hub-and-spoke pattern.
   * This feature is known as *AWS VPN CloudHub*.
 
 #### Over a Dedicated Private Connection
 * Achieved using Amazon Direct Connect (DX).
 * Involves communicating with AWS without ever going over the public internet.
-* Communication happens between an *AWS Direct Connect Location*. These are data centres (owned by third party partners), that have very fast direct physical links to AWS data centres.
+* Communication happens via an *AWS Direct Connect Location*. These are data centres (owned by third party partners), that have very fast direct physical links to AWS data centres.
   * Your business's network may already be hosted in this data centre and, if so, Direct Connect will be simpler to set up.
   * If your business's network is not aleady hosted in a partner's data centre, they will need to be contacted directly to discuss the best way to connect you to them.
+    * The majority of the management of the physical networking equipment and cabling between an external data centre or office and the AWS partner will usually be the responsibility of the customer.
 * As with Site-to-Site VPN, requires the VPC being targetted to have a Virtual Private Gateway to set up to handle the traffic.
-* The external network can access both public (AWS services like S3 and DynamoDB) and private AWS resources (e.g. Specific EC2 Instances) over the same Direct Connect connection.
+* The external network can access both public (AWS services like S3 and DynamoDB) and private AWS resources (e.g. Specific EC2 Instances) using Direct Connect.
+  * To access private resources (i.e. those within a VPC), it is necessary for a Virtual Private Gateway to exist on the VPC and set up a *Private Virtual Interface* on the Direct Connect connection.
+  * To access public resources (i.e. services that live outside of VPCs such as S3), a Virtual Private Gateway is not necessary. Instead, a *Public Virtual Interface* is created on the Direct Connect connection and communication to these public services is acheived through that.
 * The partner can offer a *dedicated connection* where each customer is provided with their own physical ethernet port that no other customer is using.
   * Alternatively, the hardware/ports will be shared between customers of the partner - known as a *Hosted Connection*.
     * However, hosted connections are more flexible as their bandwidth can be scaled at will.
@@ -317,11 +322,14 @@ AWS Solutions Architect (Associate) Certification Notes
   * Lower latency
   * Less risk of congestion
 * It can take over 1 month to get a new Direct Connect connection set up as it required co-operation between both AWS and their partner.
-* In typical setups, the data travelling through the network is not encrypted - however it is in a provate network so the risk of data breaches is low.
+* In typical setups, the data travelling through the network is not encrypted - however it is in a private network so the risk of data breaches is low.
   * If extra security is needed, it is possible to set up a VPN for the connection between the customer's data centre and the partner, and then have the traffic from the partner to AWS also encrypted.
 * For increased resiliecy, it is possible to set up Direct Connect connections to multiple partners
   * Therefore, if one partner goes down, the connectivity to AWS is maintained via the other partner location
 * For maximum resiliency, in addition to connecting to multiple locations, it is possible to have multiple Direct Connection connections per location.
+* If a customer wants to connect to multiple VPCs or multiple regions over Direct Connect, it is possible to simplify the architecture using a *Direct Connect Gateway*.
+  * This is a global hosted service by AWS that accepts a connection from an AWS Direct Connect partner and forwards the network traffic to one or many VPCs.
+  * This eliminates the need to set up multiple connections between the AWS partner and AWS for a single customer if that customer wants to link to multiple VPCs.
 
 ![AWS Direct Connect](../media/AwsDirectConnect.png)
 
@@ -495,7 +503,12 @@ AWS Solutions Architect (Associate) Certification Notes
     * For instances requiring high I/O throughput such as data warehousing.
 * The base image loaded onto an instance is known as an Amazon Machine Image (AMI). These are similar to Docker base images.
   * AMIs are either made by AWS themselves, by the community, or by the user.
+    * Community AMIs on Amazon Marketplace may cost.
   * AMIs include a variety of Linux distributions, Windows Server images, corporate software setups, etc
+  * They are simply a copy of the state of an EC2 instance that different EC2 instances can then launch from.
+  * It is common to create an AMI with the full configuration of a specific application completed so that new EC2 instances can be spun up without any additional configuration necessary.
+  * AMIs can improve launch time as the instance using the AMI will launch straight into a ready-state.
+  * An AMI is tied to a region, but it can be copied to another region if desired.
 * When an instance runs, it can be provided permissions to interact with other AWS services by having it assume a role.
 * To have the instance perform a set of pre-defined steps upon launch, a bootstrap script can be provided ("User data").
   * This may be used to, for example, install packages via the image's package manager, and then boot up a web server.
@@ -610,18 +623,18 @@ AWS Solutions Architect (Associate) Certification Notes
 
 ### Elastic Block Store (EBS)
 * Supports the creation of network drives that can be attached to an EC2 instance.
-* Existence of EBS volume persists regardless of the state of EC2 instances.
-  * Therefore, the EBS volume can exist even if its associated EC2 instance is terminated or even if it never has an associated EC2 instance at all.
+* EBS volumes can exist even if its associated EC2 instance is terminated or even if it never has an associated EC2 instance at all.
 * Bounded to a single AZ.
-  * However it can be migrated across as a snapshot (backup).
+  * However it can be migrated across AZs or Regions as a **snapshot** (backup).
+      * Snapshots can be taken at any point - however it is recommended to detach the volume from its associated instance(s) first to maintain integrity.
 * An EC2 instance can have many EBS volumes attached to it at the same time.
-* Depending on the EBS type, it can either be restricted to being attached to at most one instance at a time or, if it is Nitro-enabled, can attach to multiple at a time with multi-attach.
+* Depending on the EBS type, it can either be restricted to being attached to at most one instance at a time or, if everything is Nitro-enabled, the EBS volume can be attached to multiple instances at a once with **Multi-Attach**.
 * Billing is based on capacity where capacity is a mixture of:
   * Volume storage size
   * Input/Output Operations per Second (IOPS)
   * Throughput
 * EBS volumes can be useful for failovers as they can be detached from one instance and attached to another quickly.
-* An EBS volume can be set to be deleted upon termination of the instance that it attached to.
+* An EBS volume can be set to be deleted upon termination of the instance that it is attached to.
   * By default, the root volume is set to delete upon termination.
   * By default, no other volumes are set to delete upon termination.
   * This setting is easily toggled for any specific volume.
@@ -645,24 +658,33 @@ AWS Solutions Architect (Associate) Certification Notes
     * Lowest cold.
     * Intended as an archive drive.
 * Only SSD instance types can be used as the root volume of an EC2 instance.
-* EBS volumes can be encrypted. When encrypted:
+* Although it is not natively managed by AWS, it is possible to set up a RAID configuration using EBS volumes if the OS of the instance supports it.
+  * In partiticular, AWS suggests using RAID 0 or RAID 1 only.
+    * RAID 0: Increased throughput. Spread files across two volumes to leverage the IOPS of both drives and increase the total volume size available.
+    * RAID 1: Increased fault-tolerance. Mirror files across both drives. No increase in performance, but no loss of data if one volume fails.
+* When an EC2 instance is created, this implicitly creates a "root" EBS volume which houses the OS/system files to boot with.
+  * By default, when the EC2 instance is terminated, the root EBS volume is also terminated.
+    * The *Deletion On Termination* flag can be disabled for root volumes if desired.
+
+#### EBS Encryption
+* EBS volumes can be encrypted at creation. When encrypted:
   * Data is encrypted at rest.
   * Data is encrypted in-flight.
   * Associated snapshots are encrypted.
   * Minimal latency is introduced.
   * All encrypting/decrypting is handled by AWS, there is no noticable difference from the OS's perspective.
   * AES-256 is used and utilised keys from KMS (Key Management Service).
-* Although it is not natively managed by AWS, it is possible to set up a RAID configuration using EBS volumes if the OS of the instance supports it.
-  * In partiticular, AWS suggests using RAID 0 or RAID 1 only.
-    * RAID 0: Increased throughput. Spread files across two volumes to leverage the IOPS of both drives and increase the total volume size available.
-    * RAID 1: Increased fault-tolerance. Mirror files across both drives. No increase in performance, but no loss of data if one volume fails.
-* When an EC2 instance is created, this implicitly creates a "root" EBS volume which houses the OS/system files to boot with.
-  * When the EC2 instance is terminated, the toot EBS volume is also terminated.
+* Encrypted volumes introduce some latency to operations, but it is negligible in most circumstances.
+* It is possible for EBS volumes to not be encrypted.
+* To migrate an encrypted EBS volume to an encrypted one, we must utilise snapshots:
+  1. Create a snapshot of the unencrypted volume (the snapshot will also be unencrypted)
+  2. Encrypt the snapshot using the `copy` command
+  3. Launch a new EBS volume using the encrypted snapshot (as the snapshot is encrypted, the volume will also be encrypted)
 
 ### Local EC2 Instance Store
 * Another way to attach storage to an EC2 instance is with a Local EC2 Instance Store.
 * These are drives physically connected to the instance rather than being a virtual network drive.
-* The primary advantage of this sotrage type is that it is much faster (Higher IOPS).
+* The primary advantage of this storage type is that it is much faster (Higher IOPS).
   * The specific specs are dependant on which specific instance size is selected.
 * The main disadvantage is that data on these drives is not persistent after the EC2 instance is stopped.
   * It is therefore best suited for hosting caches/buffers rather than being a long-term storage solution.
@@ -797,7 +819,7 @@ AWS Solutions Architect (Associate) Certification Notes
         * e.g. The group should have an average of 40% CPU utilisation.
         * e.g. The group should have an average of 40 requests in per pod per second.
       * Simple / Step
-        * Create some alert in CloudWatch, when the ASG sees that a particualr alert has fired, act accordingly
+        * Create some alert in CloudWatch, when the ASG sees that a particular alert has fired, act accordingly
         * e.g. CloudWatch is set up to fire an alert if average CPU usage rises above 70%. When ASG sees this alert, increase instances by 2.
         * e.g. CloudWatch is set up to fire an alert if average CPU usage falls below 30%. When ASG sees this alert, decrease instances by 1.
     * Scheduled
@@ -850,6 +872,8 @@ AWS Solutions Architect (Associate) Certification Notes
 * Cross-Zone load balancing is always on.
   * No additional charges for routing across AZs.
 * Supports Server Name Indication (SNI).
+  * SNI is an extension to the HTTPS protocol which means a client can specify the hostname they are attempting to connect to early in the TLS handshake. Therefore a single load balancer can issue a different certificate for each of the servers that it manages.
+  * Without SNI, a load balancer can only manage a single server as it wouldn't know which certificate to issue for any given request.
 
 ### Network Load Balancer (NLB)
 * OSI layer 4 (Transport): TCP, TLS, UDP
