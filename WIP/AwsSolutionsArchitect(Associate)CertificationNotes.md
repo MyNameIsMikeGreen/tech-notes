@@ -166,17 +166,17 @@ AWS Solutions Architect (Associate) Certification Notes
 ## Cognito
 * Cognito is a service to streamline the management of external users talking to your AWS system.
 
-### Cognito User Pools (CUP)
+### Cognito User Pools
 * Can be thought of as a database of users.
   * Each user will have a username/email and password
   * We may also have 2FA set up for the user
-* CUP is exclusively used for authentication (i.e. to prove who you are, it doesn't necessarily provide authorisation).
+* Cognito User Pools are exclusively used for authentication (i.e. to prove who you are, it doesn't necessarily provide authorisation).
 * The user will log in to CUP by sending their login details. In return, CUP will return a JWT token for the user to use in subsequent requests.
 * Has integration with other identity providers (Google, Facebook, SAML, etc) so that their credentials can be used to log in to Cognito and Cognito will return a JWT token as it would if it was a "vanilla-Cognito" login.
-* Primarily used to authenticate communication with API Gateway.
 
-### Federated Identity Pools
-* Inspects the JWT token provided by CUP and returns temporary credentials that can be used by a user to directly access some AWS resource.
+### Cognito Identity Pools
+* Cognito Identity Pools are exclusively used for authorisation (i.e. to grant somebody access to do something).
+* Inspects the JWT token provided by Cognito User Pools and returns temporary credentials that can be used by a user to directly access some AWS resource.
 * The temporary credentials that are returned have an associated IAM policy which determines exactly what the user will be allowed to do within AWS.
 
 ### Cognito Sync
@@ -189,6 +189,7 @@ AWS Solutions Architect (Associate) Certification Notes
 * It is possible to store up to 20 datasets of up to 1MB each.
 * Requires Federated Identity Pools.
 * Is now deprecated in favour of the similar *AppSync* service.
+* Under the hood, Cognito Sync works by subscribing each device with the Cognito library running to an SNS topic. This topic is sent an update from any device that edits relevant user-specific properties. Each device will update their local state if a notification is read from these topics.
 
 # Networking
 ## IP Ranges
@@ -1264,7 +1265,7 @@ AWS Solutions Architect (Associate) Certification Notes
     * It is often used when needing to easily shift additional traffic to a specific destination - yet still maintaining geographical awareness.
   * Multi-Value
     * Essentially the same as simple routing but each possible destination has an associated health check. Only destinations that have a healthy destination will be included in the payload returned to the user.
-    * Up to 8 healty destinations will be included in the response.
+    * Up to 8 healthy destinations will be included in the response.
     * The user, upon receiving the payload of healthy destinations, will choose one at random in the same way as it would for simple routing.
 
 # Elastic Beanstalk
@@ -1386,7 +1387,7 @@ AWS Solutions Architect (Associate) Certification Notes
   * We are accessing `http://example.com/index.html`.
   * `http://example.com/index.html` contains an `<img>` tag to get an image from `http://someOtherExample.com/image.jpg`.
   * By default, the web browser will disllow this as it doesn't like an origin requesting resources from another origin.
-  * For the web browser to be happy to fetch resources from on `http://someOtherExample.com/image.jpg` behalf of `http://example.com/index.html`, `http://someOtherExample.com/image.jpg` must return the following header: `Access-Control-Allow-Origin: http://example.com`.
+  * For the web browser to be happy to fetch resources from `http://someOtherExample.com/image.jpg` on behalf of `http://example.com/index.html`, `http://someOtherExample.com/image.jpg` must return the following header: `Access-Control-Allow-Origin: http://example.com`.
   * Alternatively, the other origin may allow any origin by returning `Access-Control-Allow-Origin: *` in its responses.
 * Typically, a web browser will send a HTTP `OPTIONS` request to the other server first so that it can see which headers would be returned without actually having to trigger a full request first.
 * As S3 buckets are frequently used to store assets for websites, we need to make sure the bucket is including the `Access-Control-Allow-Origin` header in its responses where necessary.
@@ -1686,26 +1687,27 @@ AWS Solutions Architect (Associate) Certification Notes
 ## SQS (Simple Queue Service)
 * A fully-managed queue service allowing producers to place messages to be consumed by a consumer.
 * Messages can live in the queue for a maximum of 14 days (with 4 days being the default).
-* Maximum message size of 256 KB.
+* Maximum (standard) message size of 256 KB.
+  * It is now possible to send messages up to 2GB across SQS by using the *Extended Client Library*. When using this, messages are actually stored in S3 and the SQS message itself is merely a reference to the S3 message location. Because of this, the message delivery cost is a combination of SQS charges and S3 charges.
 * There is unlimited throughput for writing and reading messages.
-* Both reading and recieving messages is low latency (<10 ms).
+* Both reading and receiving messages is low latency (<10 ms).
 * Exposes CloudWatch metrics that can be used to trigger scale-out/in events within ASGs to handle the current queue size.
 * Supports at-rest (KMS) and in-flight (HTTPS) encryption.
-* IAM policies regulate access to SQS API operations.
 * SQS Access Policies work similarly to S3 policies to place permissions on queues.
   * They are applied on individual queues to define who can perform which actions on it.
   * Can facilitate cross-account and cross-service access.
-* A consumer application will poll the service for messages, in the response from SQS, it will receive a subset of the total messages (assuming the queue size is large). This offers the opportunity for the other subsets to be received by other consumers.
+* A consumer application will poll the service for messages. In the response from SQS, it will receive a subset of the total messages (assuming the queue size is large). This offers the opportunity for the other subsets to be received by other consumers.
 * When a message has been recieved by a consumer, the message becomes invisible to other consumers for a time specified by the queue's *Message Visibility Timeout*.
   * A consumer must send a delete request once it has successfully processed the message to prevent the message staying on the queue and being accidentally re-read by another consumer after the timeout has been exceeded.
   * Alternatively, if the consumer has fetched a message but knows it needs more time than the remaining visibility timout will allow to fully process it, it can send a `ChangeMessageVisibility` API request to SQS to extend the remaining visibility time of that one specific message.
   * By default, the visibility timeout is 30 seconds.
+    * The maximum visibility timeout is 12 hours.
   * Setting a message visbility high introduces the risk of a consumer crashing and the message it was in the middle of processing being unreachable by some similar consumer until the timeout has been exceeded.
   * Setting the message visbility too low, such that it is less time than a consumer will take to process it, means that there is a risk of the same message being consumed by multiple consumers.
     * For this reason, SQS standard is only advertised as *"at least once delivery"* and *"best effort ordering"*.
 * It is possible to set one SQS queue as the Dead Letter Queue (DLQ) for some other queue.
-  * If any single message has a recieve count higher than some configured threshold, SQS will forward the message to the configured DLQ.
-    * The counter indicates that a consumer has seen this message multiple times but never confirmed successful processing by deleting it, so it must be bad.
+  * If any single message has a recieve count (the number of times the message has been read/received by any consumer) higher than some configured threshold, SQS will forward the message to the configured DLQ.
+    * A high counter value indicates that a consumer has seen this message multiple times but never confirmed the processing as successful by deleting it, so it must be bad.
 * We can configure a delay between a message being recieved by a queue and it being visible to consumers.
   * This can be configured as a default at queue level or in the parameters of individual messages.
 * Supports *Long-Polling*
@@ -1718,7 +1720,7 @@ AWS Solutions Architect (Associate) Certification Notes
 
 ![SQS Request-Response Pattern](../media/SqsRequestResponsePattern.png)
 
-* This pattern fully decouples applications making requests from the applications responding to requests for both the act of making the request and the act of feceiving the response.
+* This pattern fully decouples applications making requests from the applications responding to requests for both the act of making the request and the act of receiving the response.
 * All intra-application communication goes via a queue.
 * There exists a dedicated queue soley for requests
   * The requestor will send to this queue
@@ -1737,7 +1739,7 @@ AWS Solutions Architect (Associate) Certification Notes
   * Subsequent messages will not be visible to consumers until preceeding messages have been deleted.
 * To prevent duplicated messages being sent in to SQS, FIFO queues also support deduplication.
   * Within a 5 minute window, any duplicate messages will be deleted
-  * Duplicated can be identified via either:
+  * Duplication can be identified via either:
     * Content (If the SHA-256 hash of the bodies are identical)
     * Deduplication ID (A custom ID sent as a header to the message to uniquely identify it regardless of its content).
       * This method has the higher precedence if both methods were activated.
@@ -1822,13 +1824,20 @@ AWS Solutions Architect (Associate) Certification Notes
     * More expensive
 
 ### Kinesis Firehose
-* Firehose is a fully-managed service which reads records from Kinesis streams, optionally performs transformation, batches them up, then sends them to various destinations.
-  * It is effectively an adapter to transport data between streams and other locations.
+* Firehose is a fully-managed service which reads data from a source, optionally performs transformation, batches them up, then sends them to various destinations.
+  * It is effectively an adapter to transport data between locations.
+* It can read data from:
+  * Kinesis Data Streams
+  * API Gateway
+  * AWS Ecentbridge
+  * Elasticache
+  * etc
 * It can send data to:
   * AWS services
     * S3
-    * Redshift
+    * Redshift (Via S3)
     * ElasticSearch
+    * etc
   * Approved partners
     * Datadog
     * NewRelic
@@ -1848,7 +1857,7 @@ AWS Solutions Architect (Associate) Certification Notes
 * Because of batching, Firehose is not real-time, it is near-real-time.
 
 ### Kinesis Data Analytics
-* Reads data from streams or from Firehose, performs SQL queries on the data, pushes the result out to another stream or Firehose.
+* Reads data from streams or from Firehose, performs SQL queries on the data, pushes the result out to another stream, S3, DynamoDB, Redshift, or other data services.
 * Fully managed
   * Scales up/down automatically as needed
 * Real-time
@@ -1986,14 +1995,15 @@ AWS Solutions Architect (Associate) Certification Notes
 # API Gateway
 * Serverless, fully-managed, service for exposing a web API that will call out to other services on the user's behalf
   * It is effectively a managed web controller layer
+  * As it is fully-managed, it scales automatically to keep up with demand
 * In many ways, it is similar to an ALB
   * An ALB will expose services as an endpoint that can be accessed
-  * API Gateway has many more features beyond simply routing
-    * Built-in caching to prevent burdening the backend service(s) with similar requests
-    * Swagger and Open API definition importing
-    * Request throttling
-    * API key generation
-    * Request transformation and validation
+* API Gateway has many more features beyond simply routing
+  * Built-in caching to prevent burdening the backend service(s) with similar requests
+  * Swagger and Open API definition importing
+  * Request throttling
+  * API key generation
+  * Request transformation and validation
 * It is useful in exposing a service that doesn't otherwise have a web API
   * With API gateway, we define an API, and have the gateway call out to the services whenever the API is used
   * A very common use-case it to point it to Lambda. Lambdas, being ephemeral, would not be suitable for hosting a web server, so are not easily accessible via HTTP without API Gateway.
@@ -2023,6 +2033,7 @@ AWS Solutions Architect (Associate) Certification Notes
   * Only helps with authentication, not authorisation
     * Any authorisation must be manually implemented in the backend services
   * Unlike the other two options where API Gateway communicates with either Lambda or IAM on the client's behalf, in this solution it is expected that the client has called out to Cognito before sending the request so that it can retreive and attach a token. API Gateway will call out to Cognito itself upon receiving the request (and the token it contains) to verify that it is valid.
+* Throttling can be used to prevent a malicious actor from flooding a service with requests and costing the owner lots of money.
 
 # Monitoring
 ## CloudWatch
@@ -2433,6 +2444,12 @@ AWS Solutions Architect (Associate) Certification Notes
   * EC2 backend servers
 * Commonly used to synchronise data between mobile and web applications
 * Also provides WebSocket support to push updates to many clients at once
+
+# Elastic Transcoder
+* Managed service for transcoding media files between different formats
+* Charged based on the number of minutes of content transcoded and the resolution of the files
+* Stores output in S3
+* Integrated with other AWS services such as Lambda and SNS to automatically trigger and monitor transcoding jobs
 
 # Cost Explorer
 * An interface in the AWS console that provides reports about costs incurred in AWS accounts
