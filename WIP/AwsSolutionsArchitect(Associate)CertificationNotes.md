@@ -409,7 +409,7 @@ AWS Solutions Architect (Associate) Certification Notes
   * VPC level
   * Subnet level
   * ENI level
-* Included traffic to/from AWS-managed networking services too (e.g. Internet Gateway)
+* Includes traffic to/from AWS-managed networking services too (e.g. Internet Gateway)
 * Can send to AWS Athena for complex querying
 
 ### VPC Traffic Mirroring
@@ -424,7 +424,7 @@ AWS Solutions Architect (Associate) Certification Notes
 * Traffic within the same AZ is free
 * Traffic across AZs in the same region costs money per GB
   * If the traffic stays within the AWS network (i.e. is using private IP addresses, not touching the public internet), the cost is half as much as if it goes outside of the AWS network (i.e. public IP addresses, on the public internet for some of the journey).
-* Traffic to a different region charges cost money per GB
+* Traffic to a different region costs money per GB
 * Sending data into AWS is typically free
 * Sending data out of AWS typically costs
 
@@ -434,7 +434,7 @@ AWS Solutions Architect (Associate) Certification Notes
 * A more advanced method is to utilise *EC2 Enhanced Networking*, also known as *SR-IOV*.
   * This offers higher bandwidth (Up to 100 Gbps) and lower latency.
   * This can be enabled by attaching an *Elastic Network Adapter (ENA)*. This provides the full 100 Gbps bandwidth.
-  * It can also be anabled by attaching an *Intel 89925 VF*. This provides up to 10 Gbps but is a legacy adapter.
+  * It can also be enabled by attaching an *Intel 89925 VF*. This provides up to 10 Gbps but is a legacy adapter.
   * This works for any EC2 AMI.
 * For Linux AMIs, an *Elastic Fabric Adapter (EFA)* offers even more improved networking capabilities (particularly, lower latency).
   * Utilises advanced message passing protocols implemented by Linux kernels.
@@ -1121,6 +1121,7 @@ AWS Solutions Architect (Associate) Certification Notes
   * In a cluster, there exists 1 *leader node* and the rest are *compute nodes*
     * The leader node is effectively the entrypoint to the system, queries are sent to it and it delegates the work to a number of compute nodes.
     * Compute nodes execute their part of the query and send the results back to the leader for aggregation.
+* A serverless variation of Redshift is currently in the preview stage which means customers do not need to care about the underlying configuration.
 * Data is loaded into Redshift from a number of OLTP databases
   * There exist additional features, such as *Redshift Spectrum*, that can bypass the need to load the data into Redshift first.
 * Is **not** multi-AZ, the cluster exists in only 1 AZ.
@@ -1136,7 +1137,7 @@ AWS Solutions Architect (Associate) Certification Notes
     * Meaning you can also use this snapshot copy to spin up an identical Redshit cluster in another region (But they won't stay synchronised).
 * Data is pulled into Redshit from S3 using the `COPY` command in Redshift.
   * This used SQL syntax in the form `COPY [data] FROM [S3_bucket] iam_role [IAM_role]`.
-  * If using certain S3 services, such as Kinesis Firehose, this copy command step can be run on your behalf.
+  * If using certain S3-aware services, such as Kinesis Firehose, this copy command step can be run on your behalf.
 * Data can be pushed to Redshift from EC2 instances using application level code (e.g. JDBC).
 * *Enhanced VPC Routing* can be enabled if the S3 buckets that source the data are within the same VPC as the Redshift cluster.
   * This means that all networking will be done within the VPC rather than going over the public internet.
@@ -1144,11 +1145,11 @@ AWS Solutions Architect (Associate) Certification Notes
   * Instead of the compute nodes querying data interally to Redshift, they query a set of thousands of AWS-controlled Spectrum nodes. The Spectrum nodes reach out to S3 on behalf of the compute nodes and sends data back.
   * This greatly improves performance as the capabilities of the massive spectrum node array is used instead of the set of provisioned Redshit nodes in your own cluster.
 
-## Glue
-* Glue is an *Extract, Transform, Load* (ETL) service which sits between Redshift and its source data to perform initial transformations in order to make it easier to analyse.
-* Glue can pull from similar sources as Redshift itself. Once in Glue, transformation will occur. Once the transformation is complete, Glue will send the result out to Redshift.
+# Glue
+* Glue is a serverless *Extract, Transform, Load* (ETL) service which sits between source data and another service to perform initial transformations in order to make it easier to analyse.
+* Glue can pull from various AWS data sources such as S3 and Kinesis. Once in Glue, transformation will occur. Once the transformation is complete, Glue will send the result out to one of the compatible targets such as Redshift, OpenSearch, and RDS .
 
-### Glue Data Catalog
+## Glue Data Catalog
 * A database containing metadata for data sources in an AWS account.
 * Stores information about S3 buckets, RDS databases, DynamoDB tables, etc.
 * Data gets into the Glue Data Catalog via the *Glue Data Crawler* which crawls through each configured source to keep the catalog up-to-date.
@@ -1200,6 +1201,14 @@ AWS Solutions Architect (Associate) Certification Notes
 |------------|--------------------|------------|--------------------------|---------------------------|
 | Redis      | Replication        | Yes        | Yes                      | Database, cache           |
 | Memcached  | Sharding           | No         | No                       | Performance-focused cache |
+
+# Lightsail
+* An abstraction platform on top of AWS to deploy web servers and applications with reduced configuration.
+* Hides away the details of provisioning servers for common use-cases.
+* Acheives the same thing as spinning up EC2 instances, RDS databases, networking rules, etc, but does it without the technical knowledge that is otherwise required to to these via the typical route.
+* Servers can be pre-configured for common application like Wordpress or nginx, or they can simply be loaded with an OS for customisation later.
+* The launched servers can be connected to via SSH just like any other EC2 instance can be.
+* The pricing model is simplified such that a fixed fee is due each month (aligned to a series of tiers) granting access to a specified limit of compute, transfer, and storage capacities.
 
 # Route53
 * Route53 is a managed DNS service.
@@ -2421,6 +2430,7 @@ AWS Solutions Architect (Associate) Certification Notes
 * Service for provisioning big data clusters
 * Handles the creation and configuration of instances that meet the parameters set for cost and performance
   * The cluster can be comprised of hundreds of EC2 instances running big data software (e.g. Apache Spark, Apache Hadoop)
+* Offers a fully-managed deployment option to handle the details of cluster configuration
 
 # OpsWorks
 * AWS-managed Chef and Puppet configuration tools
